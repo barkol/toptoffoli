@@ -211,7 +211,9 @@ def simplify_patterns_with_optimizer(self, pattern_keys=None):
         print(f"Simplified {len(pattern_keys)} patterns.")
         return {k: self.simplified_circuits[k] for k in pattern_keys if k in self.simplified_circuits}
     
-def _simplify_with_transpiler(self, pattern_id):
+
+    def _simplify_with_transpiler(self, pattern_id):
+
         """Fallback method to simplify a pattern using Qiskit's transpiler."""
         pattern = self.patterns[pattern_id]
         
@@ -231,7 +233,9 @@ def _simplify_with_transpiler(self, pattern_id):
         # Store the simplified circuit
         self.simplified_circuits[pattern_id] = simplified
     
-def simplify_patterns(self, optimization_level=3):
+
+    def simplify_patterns(self, optimization_level=3):
+
         """
         Simplify all patterns using Qiskit's transpiler (fallback method).
         
@@ -272,7 +276,9 @@ def simplify_patterns(self, optimization_level=3):
         print(f"Simplified {len(self.patterns)} patterns.")
         return self.simplified_circuits
     
-def identify_equivalent_patterns(self, tolerance=1e-10):
+
+    def identify_equivalent_patterns(self, tolerance=1e-10):
+
         """
         Identify patterns that are functionally equivalent.
         
@@ -402,8 +408,10 @@ def build_pattern_library(self, save_file='toffoli_pattern_library.pkl'):
         print(f"Pattern library saved to {save_file}")
         return library
     
-@staticmethod
-def load_pattern_library(save_file='toffoli_pattern_library.pkl'):
+
+    @staticmethod
+    def load_pattern_library(save_file='toffoli_pattern_library.pkl'):
+
         """
         Load a pattern library from file.
         

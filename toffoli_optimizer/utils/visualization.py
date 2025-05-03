@@ -508,6 +508,7 @@ def plot_optimization_results(results, output_dir="optimization_plots"):
 
 def visualize_optimization(circuit, report, filename='optimization_report'):
     """
+
     Create a comprehensive visualization of optimization results with performance metrics.
     
     This function generates multiple visualization files to help analyze the optimization

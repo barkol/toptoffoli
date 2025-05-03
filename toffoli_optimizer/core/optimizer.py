@@ -293,7 +293,9 @@ def _analyze_simplifications(self):
                 "multi_ancilla_depth_reduction": multi_ancilla_depth_reduction
             }
     
-def get_top_simplifications(self, n=5):
+
+    def get_top_simplifications(self, n=5):
+
         """Get the top N patterns with the best simplification potential."""
         # Sort patterns by depth reduction
         sorted_patterns = sorted(
@@ -304,7 +306,8 @@ def get_top_simplifications(self, n=5):
         
         return sorted_patterns[:n]
     
-def print_top_simplifications(self, n=5):
+    def print_top_simplifications(self, n=5):
+
         """Print the top N patterns with the best simplification potential."""
         top_patterns = self.get_top_simplifications(n)
         
@@ -324,7 +327,9 @@ def print_top_simplifications(self, n=5):
             print(f"   CX count reduction: {metrics['original_cx_count']} → {metrics['best_cx_count']}")
             print("-" * 80)
     
-def find_patterns_in_circuit(self, circuit):
+
+    def find_patterns_in_circuit(self, circuit):
+
         """
         Find all Toffoli patterns in a given circuit.
         
@@ -371,7 +376,9 @@ def find_patterns_in_circuit(self, circuit):
         
         return found_patterns
     
-def optimize_circuit(self, circuit, threshold=10.0, use_ancilla=True):
+
+    def optimize_circuit(self, circuit, threshold=10.0, use_ancilla=True):
+
         """
         Optimize a circuit by replacing Toffoli patterns with simplified versions.
         
@@ -702,12 +709,14 @@ class EnhancedToffoliDepthOptimizer:
             num_qubits,
             topology='linear'
         )
+
     """
     
     def __init__(self, target_fidelity=0.95, max_passes=2, output_dir=None,
                 use_parallel=True, debug_mode=False, pass_timeout_seconds=60,
                 strategy=OptimizationStrategy.HYBRID, pattern_threshold=10.0):
         """
+
             Initialize the Toffoli Depth Optimizer.
             
             Args:
@@ -740,6 +749,7 @@ class EnhancedToffoliDepthOptimizer:
                     - HYBRID: Use a weighted score of all metrics
                     If None, defaults to STANDARD.
             """
+
         self.target_fidelity = target_fidelity
         self.max_passes = max_passes
         self.use_parallel = use_parallel
@@ -778,6 +788,7 @@ class EnhancedToffoliDepthOptimizer:
         optimize_toffoli_network, _optimize_circuit, _is_better_circuit,
         estimate_physical_fidelity, calculate_logical_fidelity
     )
+
 
 # In toffoli_optimizer/core/optimizer.py
 # Add this function to the ToffoliDepthOptimizer class
@@ -952,6 +963,7 @@ class EnhancedToffoliDepthOptimizer:
             # Force garbage collection on error
             gc.collect()
             return circuit  # Return the original circuit on error
+
 
 # Define default coupling maps for different topologies
 def get_default_coupling_map(topology, num_qubits):

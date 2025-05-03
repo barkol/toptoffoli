@@ -36,8 +36,6 @@ class ToffoliCompiler:
     that implement Toffoli (CCX) gate networks.
     """
     
-# In toffoli_optimizer/core/compiler.py
-
     def __init__(self, default_basis_gates=None, debug_mode=False, coupling_map=None, optimization_level=3):
         """
         Initialize the Toffoli compiler.
@@ -55,6 +53,7 @@ class ToffoliCompiler:
         
         self.debug_mode = debug_mode
         self.optimization_level = optimization_level
+
 
         # Store the coupling map or create a default one if None
         self.coupling_map = coupling_map
@@ -158,7 +157,8 @@ def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancil
         circuit.h(ancilla2)
         circuit.h(ancilla3)
     
-def _create_optimized_4_toffoli(self, circuit, control1, control2, target, *ancilla_qubits):
+    def _create_optimized_4_toffoli(self, circuit, control1, control2, target, *ancilla_qubits):
+
         """Optimized Toffoli with 4 ancilla qubits"""
         circuit.h(target)
         circuit.h(ancilla_qubits[0])
@@ -171,7 +171,9 @@ def _create_optimized_4_toffoli(self, circuit, control1, control2, target, *anci
         circuit.h(ancilla_qubits[0])
         circuit.h(ancilla_qubits[1])
     
-def _create_optimized_7_toffoli(self, circuit, control1, control2, target, *ancilla_qubits):
+
+    def _create_optimized_7_toffoli(self, circuit, control1, control2, target, *ancilla_qubits):
+
         """Optimized Toffoli with 7+ ancilla qubits for minimum depth"""
         for ancilla in ancilla_qubits[:5]:
             circuit.h(ancilla)
@@ -184,7 +186,8 @@ def _create_optimized_7_toffoli(self, circuit, control1, control2, target, *anci
         for ancilla in ancilla_qubits[:5]:
             circuit.h(ancilla)
             
-def _create_approximate_toffoli(self, circuit, control1, control2, target, fidelity=0.9):
+    def _create_approximate_toffoli(self, circuit, control1, control2, target, fidelity=0.9):
+
         """
         Create an approximate Toffoli gate with controllable fidelity
         
@@ -230,7 +233,9 @@ def _create_approximate_toffoli(self, circuit, control1, control2, target, fidel
         circuit.cx(control2, target)
         circuit.cx(control1, target)
     
-def create_toffoli(self, qc, control1, control2, target, toffoli_type=ToffoliType.STANDARD, ancilla_qubits=None):
+
+    def create_toffoli(self, qc, control1, control2, target, toffoli_type=ToffoliType.STANDARD, ancilla_qubits=None):
+
         """
         Add a Toffoli gate to the circuit with the specified implementation
         
@@ -324,6 +329,7 @@ def create_toffoli_network(self,
             - Gates with invalid control or target qubits are skipped with warnings
             - If requested Toffoli implementation requires more ancilla qubits than available,
             the method will fall back to simpler implementations
+
         """
         if not QISKIT_AVAILABLE:
             print("Error: Qiskit is required to create Toffoli networks")
@@ -580,7 +586,9 @@ def create_toffoli_network(self,
             print(f"Error creating Toffoli network: {e}")
             return None, None
 
-def decompose_to_basis_gates(self, circuit, basis_gates=None, optimization_level=1):
+
+    def decompose_to_basis_gates(self, circuit, basis_gates=None, optimization_level=1):
+
         """
         Decompose a circuit to the specified basis gates.
         
@@ -627,7 +635,9 @@ def decompose_to_basis_gates(self, circuit, basis_gates=None, optimization_level
             print(f"Error decomposing circuit: {e}")
             return None
     
-def get_circuit_metrics(self, circuit):
+
+    def get_circuit_metrics(self, circuit):
+
         """
         Get various metrics for a quantum circuit.
         
@@ -728,7 +738,8 @@ def get_circuit_metrics(self, circuit):
                 "error": str(e)
             }
 
-def estimate_fidelity(self, num_qubits, num_operations, cx_count=None, t_count=None, depth=None):
+    def estimate_fidelity(self, num_qubits, num_operations, cx_count=None, t_count=None, depth=None):
+
         """
         Estimate the fidelity of a quantum circuit.
         
@@ -782,7 +793,8 @@ def estimate_fidelity(self, num_qubits, num_operations, cx_count=None, t_count=N
         
         return fidelity
 
-def print_comparison(self, original_circuit, mapped_circuit, optimized_circuit):
+    def print_comparison(self, original_circuit, mapped_circuit, optimized_circuit):
+
         """
         Print a detailed comparison of circuit metrics between original, mapped,
         and optimized versions of a quantum circuit.

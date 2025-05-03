@@ -199,7 +199,7 @@ class ComparisonBenchmark(ToffoliBenchmark):
             traceback.print_exc()
             return None
             
-# Get coupling map for the selected topology
+        # Get coupling map for the selected topology
         if coupling_map_provider:
             coupling_map = coupling_map_provider(topology, num_qubits)
         else:
@@ -349,7 +349,9 @@ class ComparisonBenchmark(ToffoliBenchmark):
                 logical_circuit=logical_circuit
             )
             
+
             execution_time = time.time() - start_time
+            
             print(f"Toffoli Optimizer benchmark completed in {execution_time:.4f} seconds")
             
             # Get the depth reduction percentage
@@ -635,7 +637,7 @@ class ComparisonBenchmark(ToffoliBenchmark):
         
         print(f"Benchmark report generated at {report_dir}")
         
-def _generate_summary_report(self, report_dir):
+    def _generate_summary_report(self, report_dir):
         """Generate a summary report of the benchmark results"""
         with open(os.path.join(report_dir, "summary.txt"), "w") as f:
             f.write("="*80 + "\n")
@@ -723,7 +725,8 @@ def _generate_summary_report(self, report_dir):
             
             # Calculate overall metrics across all benchmarks...
     
-def _generate_visualizations(self, vis_dir):
+    def _generate_visualizations(self, vis_dir):
+
         """Generate visualizations of the benchmark results"""
         # Prepare data for visualization
         data = defaultdict(list)
@@ -767,22 +770,28 @@ def _generate_visualizations(self, vis_dir):
             # Overall comparison
             self._create_overall_comparison_plots(data, vis_dir)
     
-def _create_topology_comparison_plots(self, data, vis_dir):
+    def _create_topology_comparison_plots(self, data, vis_dir):
+
         """Create topology comparison visualizations"""
         # Implementation for topology visualization plots
         pass
     
-def _create_network_comparison_plots(self, data, vis_dir):
+    def _create_network_comparison_plots(self, data, vis_dir):
+
         """Create network comparison visualizations"""
         # Implementation for network visualization plots
         pass
     
-def _create_overall_comparison_plots(self, data, vis_dir):
+
+    def _create_overall_comparison_plots(self, data, vis_dir):
+
         """Create overall benchmark comparison visualizations"""
         # Implementation for overall visualization plots
         pass
     
-def _save_results(self):
+
+    def _save_results(self):
+
         """Save the benchmark results to disk"""
         results_dir = os.path.join(self.config["output_dir"], f"benchmark_{self.timestamp}")
         os.makedirs(results_dir, exist_ok=True)
@@ -798,7 +807,9 @@ def _save_results(self):
             
         print(f"Results saved to {os.path.join(results_dir, 'all_results.json')}")
     
-def _make_serializable(self, obj):
+
+    def _make_serializable(self, obj):
+
         """Make an object JSON serializable by removing non-serializable components"""
         if isinstance(obj, dict):
             serializable_dict = {}
@@ -869,280 +880,280 @@ class ComprehensiveBenchmark(ComparisonBenchmark):
         # Implementation for comprehensive benchmark
         pass
 
-# In toffoli_optimizer/benchmark/benchmarks.py
 
-def _create_topology_comparison_plots(self, data, vis_dir):
-    """Create topology comparison visualizations"""
-    import matplotlib.pyplot as plt
-    import numpy as np
-    
-    # Get unique topologies
-    topologies = sorted(list(set(data["topologies"])))
-    
-    # Create depth comparison plot for different topologies
-    plt.figure(figsize=(12, 8))
-    
-    # Group data by topology
-    topo_depths = {topo: {'toffoli': [], 'qiskit': []} for topo in topologies}
-    
-    for i in range(len(data["topologies"])):
-        topo = data["topologies"][i]
-        topo_depths[topo]['toffoli'].append(data["toffoli_depths"][i])
-        topo_depths[topo]['qiskit'].append(data["qiskit_depths"][i])
-    
-    # Get average depths
-    avg_toffoli = [np.mean(topo_depths[topo]['toffoli']) for topo in topologies]
-    avg_qiskit = [np.mean(topo_depths[topo]['qiskit']) for topo in topologies]
-    
-    # Set up bar chart
-    x = np.arange(len(topologies))
-    width = 0.35
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    toffoli_bars = ax.bar(x - width/2, avg_toffoli, width, label='Toffoli Optimizer')
-    qiskit_bars = ax.bar(x + width/2, avg_qiskit, width, label='Qiskit Transpiler')
-    
-    # Add labels and title
-    ax.set_xlabel('Topology')
-    ax.set_ylabel('Average Circuit Depth')
-    ax.set_title('Circuit Depth by Topology')
-    ax.set_xticks(x)
-    ax.set_xticklabels(topologies)
-    ax.legend()
-    
-    # Add value labels on bars
-    for bar in toffoli_bars:
-        height = bar.get_height()
-        ax.annotate(f'{height:.1f}',
-                   xy=(bar.get_x() + bar.get_width() / 2, height),
-                   xytext=(0, 3),  # 3 points vertical offset
-                   textcoords="offset points",
-                   ha='center', va='bottom')
-    
-    for bar in qiskit_bars:
-        height = bar.get_height()
-        ax.annotate(f'{height:.1f}',
-                   xy=(bar.get_x() + bar.get_width() / 2, height),
-                   xytext=(0, 3),  # 3 points vertical offset
-                   textcoords="offset points",
-                   ha='center', va='bottom')
-    
-    plt.tight_layout()
-    plt.savefig(f"{vis_dir}/topology_depth_comparison.png")
-    plt.close()
-    
-    # Create improvement percentage plot
-    improvements = []
-    for topo in topologies:
-        toffoli_avg = np.mean(topo_depths[topo]['toffoli'])
-        qiskit_avg = np.mean(topo_depths[topo]['qiskit'])
-        if qiskit_avg > 0:
-            improvement = ((qiskit_avg - toffoli_avg) / qiskit_avg) * 100
-        else:
-            improvement = 0
-        improvements.append(improvement)
-    
-    plt.figure(figsize=(12, 6))
-    bars = plt.bar(topologies, improvements, color='green')
-    
-    # Add labels and title
-    plt.xlabel('Topology')
-    plt.ylabel('Depth Improvement (%)')
-    plt.title('Toffoli Optimizer Improvement Over Qiskit by Topology')
-    
-    # Add value labels on bars
-    for bar in bars:
-        height = bar.get_height()
-        plt.annotate(f'{height:.1f}%',
-                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 3),  # 3 points vertical offset
-                    textcoords="offset points",
-                    ha='center', va='bottom')
-    
-    plt.tight_layout()
-    plt.savefig(f"{vis_dir}/topology_improvement.png")
-    plt.close()
+    def _create_topology_comparison_plots(self, data, vis_dir):
+        """Create topology comparison visualizations"""
+        import matplotlib.pyplot as plt
+        import numpy as np
 
-def _create_network_comparison_plots(self, data, vis_dir):
-    """Create network comparison visualizations"""
-    import matplotlib.pyplot as plt
-    import numpy as np
-    
-    # Get unique networks
-    networks = sorted(list(set(data["networks"])))
-    
-    # Create depth comparison plot for different networks
-    plt.figure(figsize=(12, 8))
-    
-    # Group data by network
-    network_depths = {net: {'toffoli': [], 'qiskit': []} for net in networks}
-    
-    for i in range(len(data["networks"])):
-        net = data["networks"][i]
-        network_depths[net]['toffoli'].append(data["toffoli_depths"][i])
-        network_depths[net]['qiskit'].append(data["qiskit_depths"][i])
-    
-    # Get average depths
-    avg_toffoli = [np.mean(network_depths[net]['toffoli']) for net in networks]
-    avg_qiskit = [np.mean(network_depths[net]['qiskit']) for net in networks]
-    
-    # Set up bar chart
-    x = np.arange(len(networks))
-    width = 0.35
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    toffoli_bars = ax.bar(x - width/2, avg_toffoli, width, label='Toffoli Optimizer')
-    qiskit_bars = ax.bar(x + width/2, avg_qiskit, width, label='Qiskit Transpiler')
-    
-    # Add labels and title
-    ax.set_xlabel('Network Type')
-    ax.set_ylabel('Average Circuit Depth')
-    ax.set_title('Circuit Depth by Network Type')
-    ax.set_xticks(x)
-    ax.set_xticklabels(networks)
-    ax.legend()
-    
-    # Add value labels on bars
-    for bar in toffoli_bars:
-        height = bar.get_height()
-        ax.annotate(f'{height:.1f}',
-                   xy=(bar.get_x() + bar.get_width() / 2, height),
-                   xytext=(0, 3),  # 3 points vertical offset
-                   textcoords="offset points",
-                   ha='center', va='bottom')
-    
-    for bar in qiskit_bars:
-        height = bar.get_height()
-        ax.annotate(f'{height:.1f}',
-                   xy=(bar.get_x() + bar.get_width() / 2, height),
-                   xytext=(0, 3),  # 3 points vertical offset
-                   textcoords="offset points",
-                   ha='center', va='bottom')
-    
-    plt.tight_layout()
-    plt.savefig(f"{vis_dir}/network_depth_comparison.png")
-    plt.close()
-    
-    # Create improvement percentage plot
-    improvements = []
-    for net in networks:
-        toffoli_avg = np.mean(network_depths[net]['toffoli'])
-        qiskit_avg = np.mean(network_depths[net]['qiskit'])
-        if qiskit_avg > 0:
-            improvement = ((qiskit_avg - toffoli_avg) / qiskit_avg) * 100
-        else:
-            improvement = 0
-        improvements.append(improvement)
-    
-    plt.figure(figsize=(12, 6))
-    bars = plt.bar(networks, improvements, color='green')
-    
-    # Add labels and title
-    plt.xlabel('Network Type')
-    plt.ylabel('Depth Improvement (%)')
-    plt.title('Toffoli Optimizer Improvement Over Qiskit by Network Type')
-    
-    # Add value labels on bars
-    for bar in bars:
-        height = bar.get_height()
-        plt.annotate(f'{height:.1f}%',
-                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 3),  # 3 points vertical offset
-                    textcoords="offset points",
-                    ha='center', va='bottom')
-    
-    plt.tight_layout()
-    plt.savefig(f"{vis_dir}/network_improvement.png")
-    plt.close()
+        # Get unique topologies
+        topologies = sorted(list(set(data["topologies"])))
 
-def _create_overall_comparison_plots(self, data, vis_dir):
-    """Create overall benchmark comparison visualizations"""
-    import matplotlib.pyplot as plt
-    import numpy as np
-    
-    # Calculate overall statistics
-    toffoli_depths = np.array(data["toffoli_depths"])
-    qiskit_depths = np.array(data["qiskit_depths"])
-    
-    # Create boxplot comparison
-    plt.figure(figsize=(10, 6))
-    
-    box_data = [toffoli_depths, qiskit_depths]
-    labels = ['Toffoli Optimizer', 'Qiskit Transpiler']
-    
-    box = plt.boxplot(box_data, patch_artist=True, labels=labels)
-    
-    # Fill boxes with colors
-    colors = ['lightblue', 'lightgreen']
-    for patch, color in zip(box['boxes'], colors):
-        patch.set_facecolor(color)
-    
-    # Add labels and title
-    plt.ylabel('Circuit Depth')
-    plt.title('Overall Circuit Depth Comparison')
-    
-    # Add statistical annotations
-    toffoli_mean = np.mean(toffoli_depths)
-    qiskit_mean = np.mean(qiskit_depths)
-    
-    plt.figtext(0.15, 0.01, f'Toffoli: Mean={toffoli_mean:.2f}, Median={np.median(toffoli_depths):.2f}',
-               horizontalalignment='left', fontsize=10)
-    plt.figtext(0.65, 0.01, f'Qiskit: Mean={qiskit_mean:.2f}, Median={np.median(qiskit_depths):.2f}',
-               horizontalalignment='left', fontsize=10)
-    
-    plt.tight_layout(rect=[0, 0.05, 1, 1])  # Adjust for text at bottom
-    plt.savefig(f"{vis_dir}/overall_depth_comparison.png")
-    plt.close()
-    
-    # Create overall improvement chart
-    improvements = []
-    for i in range(len(toffoli_depths)):
-        if qiskit_depths[i] > 0:
-            imp = ((qiskit_depths[i] - toffoli_depths[i]) / qiskit_depths[i]) * 100
-        else:
-            imp = 0
-        improvements.append(imp)
-    
-    # Create histogram of improvements
-    plt.figure(figsize=(10, 6))
-    plt.hist(improvements, bins=10, color='green', alpha=0.7, edgecolor='black')
-    
-    # Add mean line
-    mean_imp = np.mean(improvements)
-    plt.axvline(mean_imp, color='red', linestyle='dashed', linewidth=2, 
-               label=f'Mean: {mean_imp:.2f}%')
-    
-    # Add labels and title
-    plt.xlabel('Depth Improvement (%)')
-    plt.ylabel('Frequency')
-    plt.title('Distribution of Depth Improvements')
-    plt.legend()
-    
-    plt.tight_layout()
-    plt.savefig(f"{vis_dir}/improvement_distribution.png")
-    plt.close()
-    
-    # Create summary pie chart for improvements
-    positive_imps = sum(1 for imp in improvements if imp > 0)
-    neutral_imps = sum(1 for imp in improvements if imp == 0)
-    negative_imps = sum(1 for imp in improvements if imp < 0)
-    
-    if positive_imps + neutral_imps + negative_imps > 0:  # Ensure we have data
-        plt.figure(figsize=(10, 6))
-        
-        sizes = [positive_imps, neutral_imps, negative_imps]
-        labels = ['Improvement', 'No Change', 'Regression']
-        colors = ['green', 'gray', 'red']
-        explode = (0.1, 0, 0)  # explode the 'Improvement' slice
-        
-        plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
-               shadow=True, startangle=90)
-        plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
-        
-        plt.title('Comparison Results Overview')
+        # Create depth comparison plot for different topologies
+        plt.figure(figsize=(12, 8))
+
+        # Group data by topology
+        topo_depths = {topo: {'toffoli': [], 'qiskit': []} for topo in topologies}
+
+        for i in range(len(data["topologies"])):
+            topo = data["topologies"][i]
+            topo_depths[topo]['toffoli'].append(data["toffoli_depths"][i])
+            topo_depths[topo]['qiskit'].append(data["qiskit_depths"][i])
+
+        # Get average depths
+        avg_toffoli = [np.mean(topo_depths[topo]['toffoli']) for topo in topologies]
+        avg_qiskit = [np.mean(topo_depths[topo]['qiskit']) for topo in topologies]
+
+        # Set up bar chart
+        x = np.arange(len(topologies))
+        width = 0.35
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        toffoli_bars = ax.bar(x - width/2, avg_toffoli, width, label='Toffoli Optimizer')
+        qiskit_bars = ax.bar(x + width/2, avg_qiskit, width, label='Qiskit Transpiler')
+
+        # Add labels and title
+        ax.set_xlabel('Topology')
+        ax.set_ylabel('Average Circuit Depth')
+        ax.set_title('Circuit Depth by Topology')
+        ax.set_xticks(x)
+        ax.set_xticklabels(topologies)
+        ax.legend()
+
+        # Add value labels on bars
+        for bar in toffoli_bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.1f}',
+                       xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3),  # 3 points vertical offset
+                       textcoords="offset points",
+                       ha='center', va='bottom')
+
+        for bar in qiskit_bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.1f}',
+                       xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3),  # 3 points vertical offset
+                       textcoords="offset points",
+                       ha='center', va='bottom')
+
         plt.tight_layout()
-        plt.savefig(f"{vis_dir}/results_overview.png")
+        plt.savefig(f"{vis_dir}/topology_depth_comparison.png")
         plt.close()
+
+        # Create improvement percentage plot
+        improvements = []
+        for topo in topologies:
+            toffoli_avg = np.mean(topo_depths[topo]['toffoli'])
+            qiskit_avg = np.mean(topo_depths[topo]['qiskit'])
+            if qiskit_avg > 0:
+                improvement = ((qiskit_avg - toffoli_avg) / qiskit_avg) * 100
+            else:
+                improvement = 0
+            improvements.append(improvement)
+
+        plt.figure(figsize=(12, 6))
+        bars = plt.bar(topologies, improvements, color='green')
+
+        # Add labels and title
+        plt.xlabel('Topology')
+        plt.ylabel('Depth Improvement (%)')
+        plt.title('Toffoli Optimizer Improvement Over Qiskit by Topology')
+
+        # Add value labels on bars
+        for bar in bars:
+            height = bar.get_height()
+            plt.annotate(f'{height:.1f}%',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+        plt.tight_layout()
+        plt.savefig(f"{vis_dir}/topology_improvement.png")
+        plt.close()
+
+    def _create_network_comparison_plots(self, data, vis_dir):
+        """Create network comparison visualizations"""
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        # Get unique networks
+        networks = sorted(list(set(data["networks"])))
+
+        # Create depth comparison plot for different networks
+        plt.figure(figsize=(12, 8))
+
+        # Group data by network
+        network_depths = {net: {'toffoli': [], 'qiskit': []} for net in networks}
+
+        for i in range(len(data["networks"])):
+            net = data["networks"][i]
+            network_depths[net]['toffoli'].append(data["toffoli_depths"][i])
+            network_depths[net]['qiskit'].append(data["qiskit_depths"][i])
+
+        # Get average depths
+        avg_toffoli = [np.mean(network_depths[net]['toffoli']) for net in networks]
+        avg_qiskit = [np.mean(network_depths[net]['qiskit']) for net in networks]
+
+        # Set up bar chart
+        x = np.arange(len(networks))
+        width = 0.35
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        toffoli_bars = ax.bar(x - width/2, avg_toffoli, width, label='Toffoli Optimizer')
+        qiskit_bars = ax.bar(x + width/2, avg_qiskit, width, label='Qiskit Transpiler')
+
+        # Add labels and title
+        ax.set_xlabel('Network Type')
+        ax.set_ylabel('Average Circuit Depth')
+        ax.set_title('Circuit Depth by Network Type')
+        ax.set_xticks(x)
+        ax.set_xticklabels(networks)
+        ax.legend()
+
+        # Add value labels on bars
+        for bar in toffoli_bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.1f}',
+                       xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3),  # 3 points vertical offset
+                       textcoords="offset points",
+                       ha='center', va='bottom')
+
+        for bar in qiskit_bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.1f}',
+                       xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3),  # 3 points vertical offset
+                       textcoords="offset points",
+                       ha='center', va='bottom')
+
+        plt.tight_layout()
+        plt.savefig(f"{vis_dir}/network_depth_comparison.png")
+        plt.close()
+
+        # Create improvement percentage plot
+        improvements = []
+        for net in networks:
+            toffoli_avg = np.mean(network_depths[net]['toffoli'])
+            qiskit_avg = np.mean(network_depths[net]['qiskit'])
+            if qiskit_avg > 0:
+                improvement = ((qiskit_avg - toffoli_avg) / qiskit_avg) * 100
+            else:
+                improvement = 0
+            improvements.append(improvement)
+
+        plt.figure(figsize=(12, 6))
+        bars = plt.bar(networks, improvements, color='green')
+
+        # Add labels and title
+        plt.xlabel('Network Type')
+        plt.ylabel('Depth Improvement (%)')
+        plt.title('Toffoli Optimizer Improvement Over Qiskit by Network Type')
+
+        # Add value labels on bars
+        for bar in bars:
+            height = bar.get_height()
+            plt.annotate(f'{height:.1f}%',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+        plt.tight_layout()
+        plt.savefig(f"{vis_dir}/network_improvement.png")
+        plt.close()
+
+    def _create_overall_comparison_plots(self, data, vis_dir):
+        """Create overall benchmark comparison visualizations"""
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        # Calculate overall statistics
+        toffoli_depths = np.array(data["toffoli_depths"])
+        qiskit_depths = np.array(data["qiskit_depths"])
+
+        # Create boxplot comparison
+        plt.figure(figsize=(10, 6))
+
+        box_data = [toffoli_depths, qiskit_depths]
+        labels = ['Toffoli Optimizer', 'Qiskit Transpiler']
+
+        box = plt.boxplot(box_data, patch_artist=True, labels=labels)
+
+        # Fill boxes with colors
+        colors = ['lightblue', 'lightgreen']
+        for patch, color in zip(box['boxes'], colors):
+            patch.set_facecolor(color)
+
+        # Add labels and title
+        plt.ylabel('Circuit Depth')
+        plt.title('Overall Circuit Depth Comparison')
+
+        # Add statistical annotations
+        toffoli_mean = np.mean(toffoli_depths)
+        qiskit_mean = np.mean(qiskit_depths)
+
+        plt.figtext(0.15, 0.01, f'Toffoli: Mean={toffoli_mean:.2f}, Median={np.median(toffoli_depths):.2f}',
+                   horizontalalignment='left', fontsize=10)
+        plt.figtext(0.65, 0.01, f'Qiskit: Mean={qiskit_mean:.2f}, Median={np.median(qiskit_depths):.2f}',
+                   horizontalalignment='left', fontsize=10)
+
+        plt.tight_layout(rect=[0, 0.05, 1, 1])  # Adjust for text at bottom
+        plt.savefig(f"{vis_dir}/overall_depth_comparison.png")
+        plt.close()
+
+        # Create overall improvement chart
+        improvements = []
+        for i in range(len(toffoli_depths)):
+            if qiskit_depths[i] > 0:
+                imp = ((qiskit_depths[i] - toffoli_depths[i]) / qiskit_depths[i]) * 100
+            else:
+                imp = 0
+            improvements.append(imp)
+
+        # Create histogram of improvements
+        plt.figure(figsize=(10, 6))
+        plt.hist(improvements, bins=10, color='green', alpha=0.7, edgecolor='black')
+
+        # Add mean line
+        mean_imp = np.mean(improvements)
+        plt.axvline(mean_imp, color='red', linestyle='dashed', linewidth=2, 
+                   label=f'Mean: {mean_imp:.2f}%')
+
+        # Add labels and title
+        plt.xlabel('Depth Improvement (%)')
+        plt.ylabel('Frequency')
+        plt.title('Distribution of Depth Improvements')
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig(f"{vis_dir}/improvement_distribution.png")
+        plt.close()
+
+        # Create summary pie chart for improvements
+        positive_imps = sum(1 for imp in improvements if imp > 0)
+        neutral_imps = sum(1 for imp in improvements if imp == 0)
+        negative_imps = sum(1 for imp in improvements if imp < 0)
+
+        if positive_imps + neutral_imps + negative_imps > 0:  # Ensure we have data
+            plt.figure(figsize=(10, 6))
+
+            sizes = [positive_imps, neutral_imps, negative_imps]
+            labels = ['Improvement', 'No Change', 'Regression']
+            colors = ['green', 'gray', 'red']
+            explode = (0.1, 0, 0)  # explode the 'Improvement' slice
+
+            plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
+                   shadow=True, startangle=90)
+            plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
+
+            plt.title('Comparison Results Overview')
+            plt.tight_layout()
+            plt.savefig(f"{vis_dir}/results_overview.png")
+            plt.close()
+
 
 # Export benchmark classes
 __all__ = ['ToffoliBenchmark', 'ComparisonBenchmark', 'ComprehensiveBenchmark']
