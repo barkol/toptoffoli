@@ -54,12 +54,14 @@ class ToffoliCompiler:
         self.debug_mode = debug_mode
         self.optimization_level = optimization_level
 
-        # Default to a common IBM Q coupling map if none provided
-        if coupling_map is None:
-            self.coupling_map = self._create_default_coupling_map(20)  # Linear coupling map
-        else:
-            self.coupling_map = coupling_map
-            
+
+        # Store the coupling map or create a default one if None
+        self.coupling_map = coupling_map
+        
+        # Initialize the default coupling map only if one was not provided
+        if self.coupling_map is None:
+            self.coupling_map = self._create_default_coupling_map(20)  # Linear coupling map with 20 qubits
+        
         # Store the implementations for different Toffoli types
         self.implementations = {
             ToffoliType.STANDARD: self._create_standard_toffoli,
@@ -156,6 +158,7 @@ def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancil
         circuit.h(ancilla3)
     
     def _create_optimized_4_toffoli(self, circuit, control1, control2, target, *ancilla_qubits):
+
         """Optimized Toffoli with 4 ancilla qubits"""
         circuit.h(target)
         circuit.h(ancilla_qubits[0])
@@ -168,7 +171,9 @@ def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancil
         circuit.h(ancilla_qubits[0])
         circuit.h(ancilla_qubits[1])
     
+
     def _create_optimized_7_toffoli(self, circuit, control1, control2, target, *ancilla_qubits):
+
         """Optimized Toffoli with 7+ ancilla qubits for minimum depth"""
         for ancilla in ancilla_qubits[:5]:
             circuit.h(ancilla)
@@ -182,6 +187,7 @@ def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancil
             circuit.h(ancilla)
             
     def _create_approximate_toffoli(self, circuit, control1, control2, target, fidelity=0.9):
+
         """
         Create an approximate Toffoli gate with controllable fidelity
         
@@ -227,7 +233,9 @@ def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancil
         circuit.cx(control2, target)
         circuit.cx(control1, target)
     
+
     def create_toffoli(self, qc, control1, control2, target, toffoli_type=ToffoliType.STANDARD, ancilla_qubits=None):
+
         """
         Add a Toffoli gate to the circuit with the specified implementation
         
@@ -271,20 +279,57 @@ def create_toffoli_network(self,
                               toffoli_type=ToffoliType.RELATIVE_PHASE_1,
                               allocate_ancilla_strategy='shared'):
         """
-        Create a quantum circuit from a Toffoli network.
+        Create a quantum circuit from a Toffoli network with comprehensive error handling and optimization.
+        
+        This method translates a list of Toffoli gates (CCX gates) into a fully implemented quantum
+        circuit, with support for different implementation strategies and optimizations. It handles
+        various error cases and constraints, such as qubit count limitations and control qubit constraints.
         
         Args:
-            toffoli_gates (list): List of Toffoli gates as (control_qubits, target_qubit) tuples
-            num_qubits (int): Number of qubits in the circuit
-            use_ancilla (bool): Whether to use ancilla qubits for optimization
-            target_fidelity (float): Target fidelity to optimize for
-            toffoli_type (ToffoliType): Type of Toffoli implementation to use
-            allocate_ancilla_strategy (str): Strategy for allocating ancilla qubits ('shared', 'dedicated')
+            toffoli_gates (list): List of Toffoli gates specified as either:
+                - (control_qubits, target_qubit) tuples where control_qubits is a list of indices
+                - (control1, control2, target) tuples for backward compatibility
             
+            num_qubits (int): Total number of qubits in the circuit.
+                Must be sufficient to accommodate all gate indices plus any required ancilla qubits.
+            
+            use_ancilla (bool): Whether to use ancilla qubits for optimization.
+                If True, additional qubits may be allocated for more efficient implementations.
+                If False, only standard decomposition will be used regardless of toffoli_type.
+            
+            target_fidelity (float): Target circuit fidelity (0.0-1.0).
+                Affects how aggressively gates are approximated. Lower values allow more aggressive
+                approximations that reduce depth at the cost of exactness.
+            
+            toffoli_type (ToffoliType): Type of Toffoli implementation to use:
+                - STANDARD: Standard decomposition, no ancilla
+                - RELATIVE_PHASE_1: 1-ancilla relative phase Toffoli
+                - OPTIMIZED_2: 2-ancilla optimized
+                - OPTIMIZED_3: 3-ancilla optimized
+                - OPTIMIZED_4: 4-ancilla optimized
+                - OPTIMIZED_7: 7+ ancilla optimized
+                If None, defaults to STANDARD.
+            
+            allocate_ancilla_strategy (str): Strategy for allocating ancilla qubits:
+                - 'shared': All Toffoli gates share the same ancilla qubits (less qubits, more depth)
+                - 'dedicated': Each Toffoli gate gets its own ancilla qubits if available
+                            (more qubits, less depth)
+                
         Returns:
             tuple: (circuit, ancilla_indices)
                 - circuit: The quantum circuit implementing the Toffoli network
-                - ancilla_indices: List of ancilla qubit indices, or None if no ancillas used
+                - ancilla_indices: List of indices of qubits used as ancilla, or None if no ancillas used
+        
+        Raises:
+            ValueError: If the Toffoli network cannot be created due to invalid gate specifications
+                    or insufficient qubit count
+        
+        Notes:
+            - The method automatically validates and filters invalid gates
+            - Gates with invalid control or target qubits are skipped with warnings
+            - If requested Toffoli implementation requires more ancilla qubits than available,
+            the method will fall back to simpler implementations
+
         """
         if not QISKIT_AVAILABLE:
             print("Error: Qiskit is required to create Toffoli networks")
@@ -541,7 +586,9 @@ def create_toffoli_network(self,
             print(f"Error creating Toffoli network: {e}")
             return None, None
 
+
     def decompose_to_basis_gates(self, circuit, basis_gates=None, optimization_level=1):
+
         """
         Decompose a circuit to the specified basis gates.
         
@@ -588,7 +635,9 @@ def create_toffoli_network(self,
             print(f"Error decomposing circuit: {e}")
             return None
     
+
     def get_circuit_metrics(self, circuit):
+
         """
         Get various metrics for a quantum circuit.
         
@@ -690,6 +739,7 @@ def create_toffoli_network(self,
             }
 
     def estimate_fidelity(self, num_qubits, num_operations, cx_count=None, t_count=None, depth=None):
+
         """
         Estimate the fidelity of a quantum circuit.
         
@@ -744,6 +794,7 @@ def create_toffoli_network(self,
         return fidelity
 
     def print_comparison(self, original_circuit, mapped_circuit, optimized_circuit):
+
         """
         Print a detailed comparison of circuit metrics between original, mapped,
         and optimized versions of a quantum circuit.

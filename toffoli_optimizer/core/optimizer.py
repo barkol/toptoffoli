@@ -293,7 +293,9 @@ def _analyze_simplifications(self):
                 "multi_ancilla_depth_reduction": multi_ancilla_depth_reduction
             }
     
+
     def get_top_simplifications(self, n=5):
+
         """Get the top N patterns with the best simplification potential."""
         # Sort patterns by depth reduction
         sorted_patterns = sorted(
@@ -305,6 +307,7 @@ def _analyze_simplifications(self):
         return sorted_patterns[:n]
     
     def print_top_simplifications(self, n=5):
+
         """Print the top N patterns with the best simplification potential."""
         top_patterns = self.get_top_simplifications(n)
         
@@ -324,7 +327,9 @@ def _analyze_simplifications(self):
             print(f"   CX count reduction: {metrics['original_cx_count']} → {metrics['best_cx_count']}")
             print("-" * 80)
     
+
     def find_patterns_in_circuit(self, circuit):
+
         """
         Find all Toffoli patterns in a given circuit.
         
@@ -371,7 +376,9 @@ def _analyze_simplifications(self):
         
         return found_patterns
     
+
     def optimize_circuit(self, circuit, threshold=10.0, use_ancilla=True):
+
         """
         Optimize a circuit by replacing Toffoli patterns with simplified versions.
         
@@ -672,28 +679,77 @@ def _process_circuit_safely(self, circuit, coupling_map=None):
 
 class EnhancedToffoliDepthOptimizer:
     """
-    Enhanced optimizer for minimizing the depth of Toffoli gate networks on quantum hardware.
+    Optimizer for minimizing the depth of Toffoli gate networks on quantum hardware with limited connectivity.
     
-    This class extends the original ToffoliDepthOptimizer with pattern-based optimizations
-    to identify and replace common Toffoli gate combinations with simplified equivalents.
+    This class provides comprehensive functionality to optimize Toffoli networks by:
+    1. Analyzing the logical structure of Toffoli networks
+    2. Identifying optimization opportunities through pattern matching
+    3. Applying hardware-aware optimizations respecting coupling constraints
+    4. Minimizing circuit depth while maintaining target fidelity
+    
+    The optimizer uses multiple passes and different strategies to iteratively improve 
+    circuit structure, with configurable parameters for optimization aggressiveness,
+    fidelity targets, and hardware constraints.
+    
+    Attributes:
+        target_fidelity (float): Target circuit fidelity (0.0-1.0)
+        max_passes (int): Maximum number of optimization passes
+        output_dir (str): Directory for optimizer output
+        use_parallel (bool): Whether to use parallel execution
+        debug_mode (bool): Whether to print debug information
+        pass_timeout_seconds (int): Maximum seconds per optimization pass (0 for no limit)
+        strategy (OptimizationStrategy): Strategy for optimization priorities
+        
+    Example usage:
+        optimizer = ToffoliDepthOptimizer(target_fidelity=0.95, max_passes=2)
+        results = optimizer.optimize_toffoli_network(
+            toffoli_gates,
+            output_qubits,
+            input_qubits,
+            num_qubits,
+            topology='linear'
+        )
+
     """
     
     def __init__(self, target_fidelity=0.95, max_passes=2, output_dir=None,
                 use_parallel=True, debug_mode=False, pass_timeout_seconds=60,
                 strategy=OptimizationStrategy.HYBRID, pattern_threshold=10.0):
         """
-        Initialize the Enhanced Toffoli Depth Optimizer.
-        
-        Args:
-            target_fidelity (float): Target circuit fidelity (0.0-1.0)
-            max_passes (int): Maximum number of optimization passes
-            output_dir (str): Directory for optimizer output
-            use_parallel (bool): Whether to use parallel execution
-            debug_mode (bool): Whether to print debug information
-            pass_timeout_seconds (int): Maximum seconds per optimization pass (0 for no limit)
-            strategy (OptimizationStrategy): Optimization strategy to use
-            pattern_threshold (float): Minimum depth reduction percentage to apply a pattern simplification
-        """
+
+            Initialize the Toffoli Depth Optimizer.
+            
+            Args:
+                target_fidelity (float): Target circuit fidelity (0.0-1.0).
+                    Higher values prioritize maintaining circuit fidelity over depth reduction.
+                    Recommended values: 0.9-0.99.
+                
+                max_passes (int): Maximum number of optimization passes.
+                    More passes can find better optimizations but increase runtime.
+                    Recommended values: 1-5 depending on circuit size.
+                
+                output_dir (str): Directory for optimizer output including reports and visualizations.
+                    If None, defaults to "toffoli_optimizer_results".
+                
+                use_parallel (bool): Whether to use parallel execution for optimization.
+                    Can significantly speed up optimization for large circuits but increases memory usage.
+                
+                debug_mode (bool): Whether to print detailed debug information.
+                    Useful for understanding the optimizer's decision-making process.
+                
+                pass_timeout_seconds (int): Maximum seconds per optimization pass.
+                    Set to 0 for no time limit. For large circuits, recommended value: 60-300 seconds.
+                
+                strategy (OptimizationStrategy): Strategy that determines optimization priorities.
+                    Options include:
+                    - STANDARD: Prioritize depth, then gates, then fidelity
+                    - DEPTH_REDUCTION: Only care about depth
+                    - GATE_REDUCTION: Only care about gate count
+                    - FIDELITY: Only care about fidelity
+                    - HYBRID: Use a weighted score of all metrics
+                    If None, defaults to STANDARD.
+            """
+
         self.target_fidelity = target_fidelity
         self.max_passes = max_passes
         self.use_parallel = use_parallel
@@ -732,6 +788,181 @@ class EnhancedToffoliDepthOptimizer:
         optimize_toffoli_network, _optimize_circuit, _is_better_circuit,
         estimate_physical_fidelity, calculate_logical_fidelity
     )
+
+
+# In toffoli_optimizer/core/optimizer.py
+# Add this function to the ToffoliDepthOptimizer class
+
+    def _optimize_circuit_with_memory_management(self, circuit, toffoli_gates, output_qubits, input_qubits,
+                                            num_qubits, coupling_map, basis_gates, target_fidelity,
+                                            toffoli_type=None, use_ancilla=True):
+        """
+        Memory-optimized version of the circuit optimization function.
+        
+        This method applies optimization techniques to reduce circuit depth and improve fidelity
+        while aggressively managing memory to prevent OOM errors with large circuits.
+        
+        Args:
+            circuit: Circuit to optimize
+            toffoli_gates: List of Toffoli gates
+            output_qubits: List of output qubit indices
+            input_qubits: List of input qubit indices
+            num_qubits: Total number of qubits
+            coupling_map: Coupling map for the target topology
+            basis_gates: List of available basis gates
+            target_fidelity: Target circuit fidelity
+            toffoli_type: Type of Toffoli implementation to use
+            use_ancilla: Whether to use ancilla qubits
+            
+        Returns:
+            optimized_circuit: The optimized circuit
+        """
+        try:
+            from qiskit import transpile, QuantumCircuit
+            import numpy as np
+            import gc
+            
+            # Print memory usage info if debug mode is enabled
+            if self.debug_mode:
+                import psutil
+                process = psutil.Process()
+                print(f"Memory usage before optimization: {process.memory_info().rss / (1024 * 1024):.2f} MB")
+            
+            # Start with a fresh copy of the input circuit
+            working_circuit = circuit.copy()
+            original_depth = working_circuit.depth()
+            
+            if self.debug_mode:
+                print(f"Starting optimization with circuit depth {original_depth}")
+                print(f"Circuit has {len(working_circuit.data)} gates")
+            
+            # Track the best circuit we've found so far
+            best_circuit = working_circuit.copy()
+            best_depth = original_depth
+            
+            # Get metrics without storing the entire dictionary
+            gate_counts = best_circuit.count_ops()
+            best_gate_count = sum(gate_counts.values())
+            del gate_counts  # Free memory
+            
+            best_fidelity = self.estimate_physical_fidelity(best_circuit)
+            
+            # Force garbage collection after initial setup
+            gc.collect()
+            
+            # Apply optimization techniques with appropriate memory management
+            
+            # 1. Try standard transpilation optimization - one level at a time with GC in between
+            for opt_level in [1, 2, 3]:
+                try:
+                    # Clear any previous transpiled circuits
+                    gc.collect()
+                    
+                    transpiled = transpile(
+                        working_circuit.copy(),
+                        basis_gates=basis_gates,
+                        optimization_level=opt_level
+                    )
+                    
+                    # Measure transpiled circuit (extract metrics without keeping full dictionaries)
+                    trans_depth = transpiled.depth()
+                    
+                    gate_counts = transpiled.count_ops()
+                    trans_gates = sum(gate_counts.values())
+                    del gate_counts  # Free memory
+                    
+                    trans_fidelity = self.estimate_physical_fidelity(transpiled)
+                    
+                    # Check if this is better than our current best
+                    if self._is_better_circuit(trans_depth, trans_gates, trans_fidelity,
+                                            best_depth, best_gate_count, best_fidelity):
+                        # Free old best circuit from memory
+                        del best_circuit
+                        gc.collect()
+                        
+                        best_circuit = transpiled.copy()
+                        best_depth = trans_depth
+                        best_gate_count = trans_gates
+                        best_fidelity = trans_fidelity
+                        
+                        if self.debug_mode:
+                            print(f"Transpilation level {opt_level} improved metrics: depth={best_depth}, gates={best_gate_count}, fidelity={best_fidelity:.6f}")
+                    else:
+                        # Free the transpiled circuit if we're not keeping it
+                        del transpiled
+                        gc.collect()
+                except Exception as e:
+                    if self.debug_mode:
+                        print(f"Standard transpilation at level {opt_level} failed: {e}")
+                    # Make sure to free memory even on error
+                    gc.collect()
+            
+            # Force garbage collection between optimization strategies
+            gc.collect()
+
+            # Final optimization pass with improved memory handling
+            try:
+                # Clear memory before final optimization
+                gc.collect()
+                
+                final_circuit = transpile(
+                    best_circuit.copy(),  # Use copy to prevent accidental modification
+                    basis_gates=basis_gates,
+                    optimization_level=3
+                )
+                
+                # Get metrics without storing the full dictionary
+                final_depth = final_circuit.depth()
+                
+                gate_counts = final_circuit.count_ops()
+                final_gates = sum(gate_counts.values())
+                del gate_counts  # Free memory
+                
+                final_fidelity = self.estimate_physical_fidelity(final_circuit)
+                
+                # Check if this is better
+                if self._is_better_circuit(final_depth, final_gates, final_fidelity,
+                                        best_depth, best_gate_count, best_fidelity, final_pass=True):
+                    # Free old best circuit
+                    del best_circuit
+                    gc.collect()
+                    
+                    best_circuit = final_circuit
+                    best_depth = final_depth
+                    best_gate_count = final_gates
+                    best_fidelity = final_fidelity
+                    
+                    if self.debug_mode:
+                        print(f"Final optimization pass improved metrics: depth={best_depth}, gates={best_gate_count}, fidelity={best_fidelity:.6f}")
+                else:
+                    # Free the final circuit if we're not keeping it
+                    del final_circuit
+                    gc.collect()
+            except Exception as e:
+                if self.debug_mode:
+                    print(f"Final optimization pass failed: {e}")
+                # Make sure to free memory even on error
+                gc.collect()
+            
+            # Print final memory usage if in debug mode
+            if self.debug_mode:
+                import psutil
+                process = psutil.Process()
+                print(f"Memory usage after optimization: {process.memory_info().rss / (1024 * 1024):.2f} MB")
+            
+            # Final garbage collection before returning
+            gc.collect()
+            
+            # Return the best circuit we found
+            return best_circuit
+            
+        except Exception as e:
+            print(f"Error in circuit optimization: {e}")
+            import traceback
+            traceback.print_exc()
+            # Force garbage collection on error
+            gc.collect()
+            return circuit  # Return the original circuit on error
 
 
 # Define default coupling maps for different topologies

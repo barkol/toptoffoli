@@ -508,12 +508,41 @@ def plot_optimization_results(results, output_dir="optimization_plots"):
 
 def visualize_optimization(circuit, report, filename='optimization_report'):
     """
-    Visualize the optimization results.
+
+    Create a comprehensive visualization of optimization results with performance metrics.
+    
+    This function generates multiple visualization files to help analyze the optimization
+    results, including circuit diagrams, performance metrics charts, and depth reduction
+    visualizations. It provides a holistic view of how the optimization has affected 
+    the circuit structure and performance.
     
     Args:
-        circuit: Optimized circuit
-        report: Optimization report
-        filename: Base filename for the visualization
+        circuit (QuantumCircuit): The optimized quantum circuit to visualize.
+            This should be the final output circuit from the optimization process.
+        
+        report (dict): Optimization report containing metrics and results.
+            Should include keys such as:
+            - 'original_depth': Depth of the original circuit
+            - 'optimized_depth': Depth of the optimized circuit
+            - 'depth_reduction': Percentage reduction in depth (0.0-1.0)
+            - Additional metrics may include gate counts, fidelity, etc.
+        
+        filename (str): Base filename for the visualization outputs.
+            This name will be used as a prefix for all generated files.
+            If it includes a directory path, that directory will be created if needed.
+    
+    Returns:
+        None: The function generates files on disk rather than returning values.
+    
+    Generated Files:
+        - {filename}_circuit.png: Visualization of the optimized circuit
+        - {filename}_depth_reduction.png: Bar chart showing depth reduction
+        - {filename}_report.json: JSON file with all serializable optimization metrics
+    
+    Notes:
+        - For large circuits, the circuit visualization may be simplified
+        - The function requires matplotlib for plotting
+        - All files are saved with the same base filename but different extensions
     """
     try:
         from qiskit.visualization import circuit_drawer
