@@ -8,16 +8,17 @@ with a focus on minimizing circuit depth while respecting hardware connectivity 
 # Import and expose the main components
 from .compiler import ToffoliCompiler, ToffoliType
 from .optimizer import (
-    EnhancedToffoliDepthOptimizer,
+    ToffoliDepthOptimizer,
     EnhancedToffoliDepthOptimizer,
     OptimizationStrategy,
-    validate_physical_circuit
 )
 from .pattern_library import (
-    ToffoliPatternLibrary,
     ToffoliPatternGenerator,
-    ToffoliNetworkOptimizer
+    ToffoliPatternOptimizer
 )
+
+# Add function for validating physical circuits
+from .optimizer import validate_physical_circuit
 
 # Version information
 __version__ = '1.0.0'
@@ -36,7 +37,6 @@ __all__ = [
     'validate_physical_circuit',
     
     # From pattern library
-    'ToffoliPatternLibrary',
     'ToffoliPatternGenerator',
-    'ToffoliNetworkOptimizer'
+    'ToffoliPatternOptimizer'
 ]

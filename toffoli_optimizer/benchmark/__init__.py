@@ -6,15 +6,15 @@ Toffoli circuit optimization methods on quantum hardware architectures.
 """
 
 from .benchmarks import (
-    ComparisonBenchmark, 
+    ToffoliBenchmark,
+    ComparisonBenchmark,
     ComprehensiveBenchmark,
-    run_benchmark_comparison,
-    generate_benchmark_report
+    run_simple_benchmark
 )
 
 __all__ = [
+    'ToffoliBenchmark',
     'ComparisonBenchmark',
     'ComprehensiveBenchmark',
-    'run_benchmark_comparison',
-    'generate_benchmark_report'
+    'run_simple_benchmark'
 ]

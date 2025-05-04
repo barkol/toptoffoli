@@ -58,6 +58,7 @@ class ToffoliPatternGenerator:
         self.pattern_operators = {}
         self.simplified_circuits = {}
         self.pattern_matchers = {}
+        self.simplification_metrics = {}
         
         # Check optimizer availability
         self.optimizer_available = False
@@ -161,7 +162,7 @@ class ToffoliPatternGenerator:
             # Convert pattern to Toffoli gates format for optimizer
             toffoli_gates = []
             for control1, control2, target in pattern:
-                toffoli_gates.append((control1, control2, target))
+                toffoli_gates.append(([control1, control2], target))
             
             # Define arbitrary input/output qubits
             input_qubits = list(range(self.num_qubits))
@@ -211,9 +212,7 @@ class ToffoliPatternGenerator:
         print(f"Simplified {len(pattern_keys)} patterns.")
         return {k: self.simplified_circuits[k] for k in pattern_keys if k in self.simplified_circuits}
     
-
     def _simplify_with_transpiler(self, pattern_id):
-
         """Fallback method to simplify a pattern using Qiskit's transpiler."""
         pattern = self.patterns[pattern_id]
         
@@ -233,9 +232,7 @@ class ToffoliPatternGenerator:
         # Store the simplified circuit
         self.simplified_circuits[pattern_id] = simplified
     
-
     def simplify_patterns(self, optimization_level=3):
-
         """
         Simplify all patterns using Qiskit's transpiler (fallback method).
         
@@ -276,9 +273,7 @@ class ToffoliPatternGenerator:
         print(f"Simplified {len(self.patterns)} patterns.")
         return self.simplified_circuits
     
-
     def identify_equivalent_patterns(self, tolerance=1e-10):
-
         """
         Identify patterns that are functionally equivalent.
         
@@ -332,7 +327,301 @@ class ToffoliPatternGenerator:
         
         print(f"Found {len(equivalent_groups)} groups of equivalent patterns.")
         return equivalent_groups
-		
+    
+    def analyze_simplifications(self):
+        """Analyze the simplifications and identify the best candidates."""
+        for pattern_id in self.patterns.keys():
+            # Skip if already analyzed
+            if pattern_id in self.simplification_metrics:
+                continue
+                
+            # Get the original and simplified circuits
+            original_circuit = None
+            simplified_circuit = None
+            
+            # Create original circuit
+            try:
+                original_circuit = QuantumCircuit(self.num_qubits)
+                for control1, control2, target in self.patterns[pattern_id]["sequence"]:
+                    original_circuit.ccx(control1, control2, target)
+            except:
+                # If we can't access the sequence directly, try recreating it
+                try:
+                    pattern = self.patterns[pattern_id]
+                    original_circuit = QuantumCircuit(self.num_qubits)
+                    for control1, control2, target in pattern:
+                        original_circuit.ccx(control1, control2, target)
+                except Exception as e:
+                    if self.debug_mode:
+                        print(f"Error creating original circuit for {pattern_id}: {e}")
+                    continue
+            
+            # Get simplified circuit
+            simplified_circuit = self.simplified_circuits.get(pattern_id)
+            
+            if original_circuit is None or simplified_circuit is None:
+                continue
+            
+            # Calculate metrics
+            try:
+                original_depth = original_circuit.depth()
+                original_size = len(original_circuit.data)
+                original_cx_count = sum(1 for inst in original_circuit.data if inst.operation.name == 'cx')
+                
+                simplified_depth = simplified_circuit.depth()
+                simplified_size = len(simplified_circuit.data)
+                simplified_cx_count = sum(1 for inst in simplified_circuit.data if inst.operation.name == 'cx')
+                
+                # Calculate improvement percentages
+                if original_depth > 0:
+                    depth_reduction = ((original_depth - simplified_depth) / original_depth) * 100
+                else:
+                    depth_reduction = 0
+                
+                if original_size > 0:
+                    size_reduction = ((original_size - simplified_size) / original_size) * 100
+                else:
+                    size_reduction = 0
+                    
+                if original_cx_count > 0:
+                    cx_reduction = ((original_cx_count - simplified_cx_count) / original_cx_count) * 100
+                else:
+                    cx_reduction = 0
+                
+                # Store metrics
+                self.simplification_metrics[pattern_id] = {
+                    "original_depth": original_depth,
+                    "original_size": original_size,
+                    "original_cx_count": original_cx_count,
+                    "simplified_depth": simplified_depth,
+                    "simplified_size": simplified_size,
+                    "simplified_cx_count": simplified_cx_count,
+                    "depth_reduction": depth_reduction,
+                    "size_reduction": size_reduction,
+                    "cx_reduction": cx_reduction
+                }
+            except Exception as e:
+                if self.debug_mode:
+                    print(f"Error analyzing pattern {pattern_id}: {e}")
+        
+        print(f"Analyzed {len(self.simplification_metrics)} pattern simplifications")
+    
+    def get_top_simplifications(self, n=5):
+        """Get the top N patterns with the best simplification potential."""
+        # Make sure we've analyzed all patterns
+        if len(self.simplification_metrics) < len(self.patterns):
+            self.analyze_simplifications()
+        
+        # Sort patterns by depth reduction
+        sorted_patterns = sorted(
+            self.simplification_metrics.items(),
+            key=lambda x: x[1]["depth_reduction"],
+            reverse=True
+        )
+        
+        return sorted_patterns[:n]
+    
+    def print_top_simplifications(self, n=5):
+        """Print the top N patterns with the best simplification potential."""
+        top_patterns = self.get_top_simplifications(n)
+        
+        print(f"\nTop {n} Toffoli Patterns with Greatest Simplification Potential:\n")
+        print("-" * 80)
+        
+        for i, (pattern_id, metrics) in enumerate(top_patterns):
+            pattern_sequence = None
+            try:
+                pattern_sequence = self.patterns[pattern_id]["sequence"]
+            except:
+                pattern_sequence = self.patterns[pattern_id]
+            
+            print(f"{i+1}. Pattern ID: {pattern_id}")
+            print(f"   Original sequence: {pattern_sequence}")
+            print(f"   Original depth: {metrics['original_depth']}")
+            print(f"   Simplified depth: {metrics['simplified_depth']}")
+            print(f"   Depth reduction: {metrics['depth_reduction']:.2f}%")
+            print(f"   CX count reduction: {metrics['original_cx_count']} → {metrics['simplified_cx_count']}")
+            print("-" * 80)
+    
+    def find_patterns_in_circuit(self, circuit):
+        """
+        Find all Toffoli patterns in a given circuit.
+        
+        Args:
+            circuit: The circuit to analyze
+            
+        Returns:
+            list: List of (pattern_id, start_index) tuples for all found patterns
+        """
+        found_patterns = []
+        
+        # First extract all Toffoli gates from the circuit
+        toffoli_gates = []
+        for i, instruction in enumerate(circuit.data):
+            if instruction.operation.name == 'ccx':
+                qubits = [q.index if hasattr(q, 'index') else q._index for q in instruction.qubits]
+                control1, control2, target = qubits
+                toffoli_gates.append((i, (control1, control2, target)))
+        
+        # Check against each pattern
+        for pattern_id, pattern in self.patterns.items():
+            pattern_length = len(pattern)
+            
+            # Skip if circuit doesn't have enough Toffoli gates
+            if len(toffoli_gates) < pattern_length:
+                continue
+            
+            # Scan through Toffoli gates looking for pattern matches
+            for i in range(len(toffoli_gates) - pattern_length + 1):
+                # Get the sequence of gates to compare
+                gate_sequence = [gate for _, gate in toffoli_gates[i:i+pattern_length]]
+                
+                # Check if this matches the pattern
+                try:
+                    # For different pattern storage formats
+                    if isinstance(pattern, dict) and "sequence" in pattern:
+                        pattern_sequence = pattern["sequence"]
+                    else:
+                        pattern_sequence = pattern
+                    
+                    # Compare gate sequences
+                    if gate_sequence == pattern_sequence:
+                        found_patterns.append((pattern_id, toffoli_gates[i][0]))
+                except Exception as e:
+                    if self.debug_mode:
+                        print(f"Error comparing pattern {pattern_id}: {e}")
+        
+        return found_patterns
+    
+    def optimize_circuit(self, circuit, threshold=10.0, use_ancilla=True):
+        """
+        Optimize a circuit by replacing Toffoli patterns with simplified versions.
+        
+        Args:
+            circuit: The circuit to optimize
+            threshold: Minimum depth reduction percentage to apply a simplification
+            use_ancilla: Whether to allow solutions with ancilla qubits
+            
+        Returns:
+            QuantumCircuit: The optimized circuit
+        """
+        # Make sure we've analyzed all patterns
+        if len(self.simplification_metrics) < len(self.patterns):
+            self.analyze_simplifications()
+        
+        # Find all patterns in the circuit
+        patterns = self.find_patterns_in_circuit(circuit)
+        
+        if not patterns:
+            return circuit
+            
+        print(f"Found {len(patterns)} Toffoli patterns in the circuit")
+        
+        # Sort by position in reverse order (to handle overlapping patterns properly)
+        patterns.sort(key=lambda x: x[1], reverse=True)
+        
+        # Create a copy of the circuit to modify
+        optimized_circuit = circuit.copy()
+        
+        # Apply simplifications for patterns that meet the threshold
+        replacements = 0
+        for pattern_id, start_idx in patterns:
+            # Skip if we don't have metrics for this pattern
+            if pattern_id not in self.simplification_metrics:
+                continue
+                
+            metrics = self.simplification_metrics[pattern_id]
+            
+            if metrics["depth_reduction"] >= threshold:
+                # Get simplified circuit for this pattern
+                if pattern_id not in self.simplified_circuits:
+                    continue
+                    
+                simplified = self.simplified_circuits[pattern_id]
+                
+                # Get pattern length
+                pattern_length = 0
+                try:
+                    if isinstance(self.patterns[pattern_id], dict) and "sequence" in self.patterns[pattern_id]:
+                        pattern_length = len(self.patterns[pattern_id]["sequence"])
+                    else:
+                        pattern_length = len(self.patterns[pattern_id])
+                except:
+                    continue
+                
+                # Find the Toffoli gates to replace
+                toffoli_indices = []
+                toffoli_qubits = []
+                
+                # Find all Toffoli gates in sequence starting from start_idx
+                gate_count = 0
+                for i, instruction in enumerate(optimized_circuit.data[start_idx:]):
+                    if instruction.operation.name == 'ccx':
+                        toffoli_indices.append(start_idx + i)
+                        qubits = [q.index if hasattr(q, 'index') else q._index for q in instruction.qubits]
+                        toffoli_qubits.append(qubits)
+                        gate_count += 1
+                    
+                    if gate_count >= pattern_length:
+                        break
+                
+                # Check if we found enough gates
+                if len(toffoli_indices) < pattern_length:
+                    continue
+                
+                # Get unique qubits used in this pattern
+                all_qubits = set()
+                for control1, control2, target in toffoli_qubits[:pattern_length]:
+                    all_qubits.add(control1)
+                    all_qubits.add(control2)
+                    all_qubits.add(target)
+                all_qubits = sorted(list(all_qubits))
+                
+                # Create qubit mapping between pattern and actual circuit
+                qubit_map = {}
+                for i, q in enumerate(range(simplified.num_qubits)):
+                    if i < len(all_qubits):
+                        qubit_map[q] = all_qubits[i]
+                
+                # Remove the pattern gates from the circuit
+                for idx in sorted(toffoli_indices[:pattern_length], reverse=True):
+                    optimized_circuit.data.pop(idx)
+                
+                # Create a new subcircuit with the simplified pattern
+                subcircuit = QuantumCircuit(optimized_circuit.num_qubits)
+                
+                # Add the simplified gates with mapped qubits
+                for instruction in simplified.data:
+                    try:
+                        # Get operation and qubits
+                        operation = instruction.operation
+                        qubits = [qubit_map.get(q.index, q.index) if hasattr(q, 'index') else 
+                                  qubit_map.get(q._index, q._index) for q in instruction.qubits]
+                        
+                        # Add to subcircuit
+                        subcircuit.append(operation, qubits)
+                    except Exception as e:
+                        if self.debug_mode:
+                            print(f"Error adding simplified instruction: {e}")
+                
+                # Insert the subcircuit at the position of the first gate
+                for i, instruction in enumerate(subcircuit.data):
+                    optimized_circuit.data.insert(start_idx + i, instruction)
+                
+                replacements += 1
+        
+        if replacements > 0:
+            print(f"Applied {replacements} pattern replacements")
+            
+            # Final transpilation to clean up
+            try:
+                from qiskit import transpile
+                optimized_circuit = transpile(optimized_circuit, optimization_level=3)
+            except:
+                pass
+        
+        return optimized_circuit
+    
     def build_pattern_library(self, save_file='toffoli_pattern_library.pkl'):
         """
         Build and save a complete pattern library.
@@ -355,48 +644,14 @@ class ToffoliPatternGenerator:
             print("Using Qiskit transpiler for pattern simplification...")
             self.simplify_patterns()
         
-        # Build pattern matchers for each unique sequence
-        for pattern_id, pattern in self.patterns.items():
-            # Skip if already built
-            if pattern_id in self.pattern_matchers:
-                continue
-                
-            # Create a pattern matcher for each Toffoli sequence
-            matcher = {
-                'sequence': pattern,
-                'operator': self.pattern_operators.get(pattern_id),
-                'simplified_circuit': self.simplified_circuits.get(pattern_id)
-            }
-            
-            # Compute gate counts and complexity metrics
-            if pattern_id in self.simplified_circuits:
-                simplified = self.simplified_circuits[pattern_id]
-                
-                # Count gates
-                gate_counts = simplified.count_ops()
-                cx_count = gate_counts.get('cx', 0)
-                single_qubit_count = sum(gate_counts.get(g, 0) for g in ['u1', 'u2', 'u3', 'x', 'y', 'z', 'h', 's', 't', 'id'])
-                
-                # Store complexity metrics
-                matcher['depth'] = simplified.depth()
-                matcher['cx_count'] = cx_count
-                matcher['single_qubit_count'] = single_qubit_count
-                matcher['total_gates'] = cx_count + single_qubit_count
-                matcher['gate_counts'] = gate_counts
-            
-            self.pattern_matchers[pattern_id] = matcher
-            
-            # Print progress periodically
-            if int(pattern_id.split('_')[1]) % 100 == 0:
-                # Force garbage collection
-                gc.collect()
+        # Analyze the simplifications
+        self.analyze_simplifications()
         
         # Create the complete library
         library = {
             'patterns': self.patterns,
-            'pattern_operators': {},  # Don't save operators (too large)
             'simplified_circuits': self.simplified_circuits,
-            'pattern_matchers': self.pattern_matchers,
+            'simplification_metrics': self.simplification_metrics,
             'num_qubits': self.num_qubits,
             'max_toffolis': self.max_toffolis
         }
@@ -408,10 +663,8 @@ class ToffoliPatternGenerator:
         print(f"Pattern library saved to {save_file}")
         return library
     
-
     @staticmethod
     def load_pattern_library(save_file='toffoli_pattern_library.pkl'):
-
         """
         Load a pattern library from file.
         
@@ -453,217 +706,22 @@ class ToffoliPatternOptimizer:
             generator = ToffoliPatternGenerator(debug_mode=debug_mode)
             self.library = generator.build_pattern_library(library_file)
         
-        # Initialize ToffoliDepthOptimizer if available
-        self.optimizer_available = False
-        self.compiler = None
-        self.optimizer = None
-        try:
-            from ..core.optimizer import ToffoliDepthOptimizer
-            from ..core.compiler import ToffoliCompiler
-            self.compiler = ToffoliCompiler(debug_mode=debug_mode)
-            self.optimizer = ToffoliDepthOptimizer(
-                target_fidelity=0.95,
-                max_passes=2,
-                debug_mode=debug_mode
-            )
-            self.optimizer_available = True
-        except ImportError:
-            pass
+        # Initialize pattern generator for finding patterns
+        self.pattern_generator = ToffoliPatternGenerator(debug_mode=debug_mode)
+        self.pattern_generator.patterns = self.library['patterns']
+        self.pattern_generator.simplified_circuits = self.library['simplified_circuits']
+        self.pattern_generator.simplification_metrics = self.library['simplification_metrics']
     
-    def identify_patterns(self, toffoli_gates, window_size=3):
+    def optimize_circuit(self, circuit, threshold=10.0, use_ancilla=True):
         """
-        Identify patterns in a Toffoli network.
+        Optimize a circuit using pattern-based replacements.
         
         Args:
-            toffoli_gates: List of Toffoli gates as (control1, control2, target) tuples
-            window_size: Maximum window size for pattern matching
-        
+            circuit: The circuit to optimize
+            threshold: Minimum depth reduction percentage to apply a pattern
+            use_ancilla: Whether to allow solutions with ancilla qubits
+            
         Returns:
-            list: Identified patterns with their positions
+            QuantumCircuit: The optimized circuit
         """
-        identified_patterns = []
-        
-        # Iterate over possible window sizes
-        for size in range(1, min(window_size + 1, len(toffoli_gates) + 1)):
-            # Slide the window over the gates
-            for i in range(len(toffoli_gates) - size + 1):
-                # Extract the window
-                window = toffoli_gates[i:i+size]
-                
-                # Check if this window matches any pattern
-                for pattern_id, matcher in self.library['pattern_matchers'].items():
-                    if matcher['sequence'] == window:
-                        # Pattern found
-                        identified_patterns.append({
-                            'pattern_id': pattern_id,
-                            'position': i,
-                            'size': size,
-                            'original': window,
-                            'simplified_circuit': matcher['simplified_circuit'],
-                            'metrics': {
-                                'depth': matcher.get('depth', 0),
-                                'cx_count': matcher.get('cx_count', 0),
-                                'single_qubit_count': matcher.get('single_qubit_count', 0),
-                                'total_gates': matcher.get('total_gates', 0)
-                            }
-                        })
-        
-        return identified_patterns
-    
-    def optimize_toffoli_network(self, toffoli_gates, num_qubits, use_advanced_optimization=True):
-        """
-        Optimize a Toffoli network by replacing patterns with simplified circuits.
-        
-        Args:
-            toffoli_gates: List of Toffoli gates as (control1, control2, target) tuples
-            num_qubits: Number of qubits in the circuit
-            use_advanced_optimization: Whether to use ToffoliDepthOptimizer for final optimization
-        
-        Returns:
-            tuple: (optimized_circuit, optimization_report)
-        """
-        # 1. Identify patterns in the network
-        patterns = self.identify_patterns(toffoli_gates)
-        
-        # 2. Sort patterns by position and size (prefer larger patterns)
-        patterns.sort(key=lambda p: (p['position'], -p['size']))
-        
-        # 3. Create a new circuit
-        optimized_circuit = QuantumCircuit(num_qubits)
-        
-        # 4. Track which gates have been replaced
-        replaced = [False] * len(toffoli_gates)
-        replacements = []
-        
-        # 5. Apply non-overlapping pattern replacements
-        for pattern in patterns:
-            position = pattern['position']
-            size = pattern['size']
-            
-            # Check if any gates in this pattern have already been replaced
-            if any(replaced[position + j] for j in range(size)):
-                continue
-            
-            # Replace this pattern
-            replacements.append({
-                'position': position,
-                'size': size,
-                'simplified': pattern['simplified_circuit'],
-                'pattern_id': pattern['pattern_id']
-            })
-            
-            # Mark these gates as replaced
-            for j in range(size):
-                replaced[position + j] = True
-        
-        # 6. Create optimization report
-        report = {
-            'total_gates': len(toffoli_gates),
-            'replaced_gates': sum(replaced),
-            'patterns_used': len(replacements),
-            'replacements': replacements
-        }
-        
-        # 7. Build the initial optimized circuit
-        # First add any Toffoli gates that weren't replaced
-        for i in range(len(toffoli_gates)):
-            if not replaced[i]:
-                # Add this gate to the circuit
-                control1, control2, target = toffoli_gates[i]
-                optimized_circuit.ccx(control1, control2, target)
-        
-        # 8. Add the simplified circuits for replaced patterns
-        for replacement in replacements:
-            pos = replacement['position']
-            simplified = replacement['simplified']
-            
-            # Create a subcircuit with the simplified pattern
-            subcircuit = QuantumCircuit(num_qubits)
-            
-            # Map the pattern's qubits to the actual qubits
-            pattern_qubits = list(range(simplified.num_qubits))
-            actual_qubits = []
-            
-            # Get the qubits used in this pattern
-            for control1, control2, target in self.library['patterns'][replacement['pattern_id']]:
-                if control1 not in actual_qubits:
-                    actual_qubits.append(control1)
-                if control2 not in actual_qubits:
-                    actual_qubits.append(control2)
-                if target not in actual_qubits:
-                    actual_qubits.append(target)
-            
-            # Add the simplified circuit's instructions to the subcircuit
-            for instruction in simplified.data:
-                gate = instruction.operation
-                qubits = instruction.qubits
-                
-                # Map pattern qubits to actual qubits
-                mapped_qubits = [actual_qubits[pattern_qubits.index(q.index)] for q in qubits]
-                
-                # Add the gate to the subcircuit
-                subcircuit.append(gate, mapped_qubits)
-            
-            # Add the subcircuit to the main circuit
-            optimized_circuit = optimized_circuit.compose(subcircuit)
-        
-        # 9. Apply final optimization
-        if use_advanced_optimization and self.optimizer_available:
-            try:
-                # Use ToffoliDepthOptimizer for final optimization
-                print("Applying advanced optimization with ToffoliDepthOptimizer...")
-                
-                # Define arbitrary I/O qubits (all qubits)
-                input_qubits = list(range(num_qubits))
-                output_qubits = list(range(num_qubits))
-                
-                # Extract Toffoli gates from the optimized circuit
-                extracted_toffolis = []
-                for instruction in optimized_circuit.data:
-                    if instruction.operation.name == 'ccx':
-                        qubits = [q.index for q in instruction.qubits]
-                        extracted_toffolis.append((qubits[0], qubits[1], qubits[2]))
-                
-                # Apply ToffoliDepthOptimizer
-                optimizer_results = self.optimizer.optimize_toffoli_network(
-                    extracted_toffolis,
-                    output_qubits,
-                    input_qubits,
-                    num_qubits,
-                    topology='linear',  # Use linear topology for simplicity
-                    original_circuit=optimized_circuit
-                )
-                
-                # Extract the final optimized circuit
-                if "optimized" in optimizer_results and "circuit" in optimizer_results["optimized"]:
-                    final_circuit = optimizer_results["optimized"]["circuit"]
-                else:
-                    final_circuit = transpile(optimized_circuit, optimization_level=3)
-                
-                # Update the report with ToffoliDepthOptimizer metrics
-                if "optimized" in optimizer_results:
-                    report['toffoli_optimizer_metrics'] = {
-                        'depth': optimizer_results["optimized"].get("depth", 0),
-                        'gate_count': optimizer_results["optimized"].get("gate_count", 0),
-                        'cx_count': optimizer_results["optimized"].get("cx_count", 0),
-                        'fidelity': optimizer_results["optimized"].get("physical_fidelity", 0)
-                    }
-            except Exception as e:
-                if self.debug_mode:
-                    print(f"Error in advanced optimization: {e}")
-                    traceback.print_exc()
-                # Fallback to basic transpilation
-                final_circuit = transpile(optimized_circuit, optimization_level=3)
-        else:
-            # Use Qiskit's transpiler for final optimization
-            final_circuit = transpile(optimized_circuit, optimization_level=3)
-        
-        # 10. Update the report with the final metrics
-        original_depth = len(toffoli_gates) * 6  # Approximate depth (6 layers per Toffoli)
-        optimized_depth = final_circuit.depth()
-        report['original_depth'] = original_depth
-        report['optimized_depth'] = optimized_depth
-        report['depth_reduction'] = 1 - optimized_depth / original_depth if original_depth > 0 else 0
-        report['final_gate_count'] = sum(final_circuit.count_ops().values())
-        
-        return final_circuit, report
+        return self.pattern_generator.optimize_circuit(circuit, threshold, use_ancilla)

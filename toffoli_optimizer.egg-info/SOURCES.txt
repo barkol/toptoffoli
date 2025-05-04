@@ -10,6 +10,8 @@ toffoli_optimizer.egg-info/requires.txt
 toffoli_optimizer.egg-info/top_level.txt
 toffoli_optimizer/benchmark/__init__.py
 toffoli_optimizer/benchmark/benchmarks.py
+toffoli_optimizer/benchmark/network_generators.py
+toffoli_optimizer/benchmark/simple_benchmark_function.py
 toffoli_optimizer/core/__init__.py
 toffoli_optimizer/core/compiler.py
 toffoli_optimizer/core/optimizer.py

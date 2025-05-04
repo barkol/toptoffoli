@@ -940,3 +940,6 @@ def define_loaded_toffoli_network(filename="toffoli_network_circuit", debug=Fals
     simple_input_qubits = [0, 1, 3]
     
     return simple_toffoli_gates, simple_output_qubits, simple_input_qubits
+
+# Export needed functions
+load_toffoli_network = ToffoliNetworkLoader.load_toffoli_network

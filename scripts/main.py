@@ -14,7 +14,7 @@ import json
 
 from toffoli_optimizer.core.compiler import ToffoliCompiler
 from toffoli_optimizer.core.optimizer import ToffoliDepthOptimizer
-from toffoli_optimizer.utils.io_utils import load_toffoli_network, save_circuit_to_qasm
+from toffoli_optimizer.utils.io_utils import define_loaded_toffoli_network, save_circuit_to_qasm
 from toffoli_optimizer.utils.circuit_utils import get_default_coupling_map
 
 
@@ -93,11 +93,16 @@ def run_optimizer(args):
     )
     
     # Load the Toffoli network
-    toffoli_gates, output_qubits, input_qubits, num_qubits = load_toffoli_network(args.input)
-    
-    if toffoli_gates is None:
+    result = define_loaded_toffoli_network(args.input)
+    if result is None:
         print(f"Error: Failed to load Toffoli network from {args.input}")
         return 1
+    
+    toffoli_gates, output_qubits, input_qubits = result
+    
+    # Use default num_qubits if not defined in the loaded network
+    num_qubits = args.num_qubits or max(8, 
+        max([max(controls + [target]) for controls, target in toffoli_gates]) + 1)
     
     # Override the number of qubits if specified
     if args.num_qubits is not None:
@@ -202,13 +207,39 @@ def run_optimizer(args):
     
     return 0
 
+def make_serializable(obj):
+    """
+    Make an object JSON serializable by removing non-serializable components.
+    
+    Args:
+        obj: Object to make serializable
+        
+    Returns:
+        object: JSON serializable version of the object
+    """
+    if isinstance(obj, dict):
+        serializable_dict = {}
+        for key, value in obj.items():
+            # Skip circuit objects and other non-serializable things
+            if key.endswith("circuit") or key in ["coupling_map"]:
+                continue
+            serializable_dict[key] = make_serializable(value)
+        return serializable_dict
+    elif isinstance(obj, list):
+        return [make_serializable(item) for item in obj]
+    elif isinstance(obj, (int, float, str, bool, type(None))):
+        return obj
+    else:
+        # Convert other objects to string representation
+        return str(obj)
+
 def run_benchmark(args):
     """Run a benchmark with the specified configuration"""
     print("Running benchmark")
     
     # Import benchmark functionality
     try:
-        from toffoli_optimizer.benchmark.benchmarks import run_simple_benchmark
+        from toffoli_optimizer.benchmark import run_simple_benchmark
         from toffoli_optimizer.utils.io_utils import define_loaded_toffoli_network
         from toffoli_optimizer.benchmark.network_generators import define_toffoli_network, define_variable_toffoli_network
     except ImportError as e:
@@ -257,11 +288,8 @@ def run_benchmark(args):
     results_file = os.path.join(results_dir, "benchmark_results.json")
     
     try:
-        # Make the results serializable
-        serializable_results = {}
-        for key, value in results.items():
-            if not key.endswith("circuit"):  # Skip circuit objects
-                serializable_results[key] = value
+        # Make the results serializable using our helper function
+        serializable_results = make_serializable(results)
         
         with open(results_file, 'w') as f:
             json.dump(serializable_results, f, indent=2)

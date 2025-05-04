@@ -1,0 +1,87 @@
+{
+  "custom_network_grid_opt3_fid0.95": {
+    "config": {
+      "network": "custom_network",
+      "topology": "grid",
+      "optimization_level": 3,
+      "target_fidelity": 0.95,
+      "num_qubits": 12,
+      "num_toffoli_gates": 10
+    },
+    "logical": {
+      "depth": 50,
+      "gate_count": 70,
+      "cx_count": 50
+    },
+    "original": {
+      "depth": 94,
+      "gate_count": 147,
+      "cx_count": 105,
+      "description": "Naive mapping to physical topology"
+    },
+    "toffoli_optimizer": {
+      "logical": {
+        "depth": 50,
+        "gate_count": 70,
+        "cx_count": 50,
+        "t_gates": 0
+      },
+      "naive_physical": {
+        "depth": 94,
+        "gate_count": 147,
+        "cx_count": 105,
+        "t_gates": 0
+      },
+      "optimized": {
+        "depth": 50,
+        "gate_count": 70,
+        "cx_count": 50,
+        "t_gates": 0,
+        "best_pass": 0,
+        "early_termination_would_trigger": true,
+        "pass_timeout_count": 0,
+        "physical_fidelity": 0.5888773709660171,
+        "logical_fidelity": 0.9
+      },
+      "final": {
+        "depth": 50,
+        "gate_count": 70,
+        "cx_count": 50,
+        "t_gates": 0
+      },
+      "mapped": {
+        "depth": 86,
+        "gate_count": 149,
+        "cx_count": 108,
+        "t_gates": 0,
+        "logical_fidelity": 0.9,
+        "physical_fidelity": 0.31966624285047496,
+        "physical_depth": 86,
+        "respects_coupling_map": true,
+        "fidelity": 0.31966624285047496
+      },
+      "depth_reduction": 0.0,
+      "depth_reduction_from_naive": 8.51063829787234,
+      "execution_time": 0.16730999946594238,
+      "optimization_time": 0.14551186561584473
+    },
+    "qiskit_transpiler": {
+      "depth": 85,
+      "gate_count": 132,
+      "cx_count": 91,
+      "t_gates": 0,
+      "execution_time": 0.04084205627441406,
+      "depth_reduction": -70.0,
+      "depth_reduction_from_naive": -2.4096385542168677,
+      "fidelity": 0.3796063035072134,
+      "optimization_level": 3
+    },
+    "image_paths": {
+      "logical": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/logical_circuit_20250504_100633.txt",
+      "original": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/original_circuit_20250504_100633.txt",
+      "toffoli_mapped": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/toffoli_mapped_circuit_20250504_100633.txt",
+      "toffoli_optimized": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/toffoli_optimized_circuit_20250504_100633.txt",
+      "qiskit": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/qiskit_circuit_20250504_100633.txt"
+    }
+  }
+}

@@ -6,6 +6,13 @@ including physical mapping, circuit validation, fidelity estimation,
 I/O operations, and visualization tools.
 """
 
+# Try to import Qiskit to check availability
+try:
+    from qiskit import QuantumCircuit
+    QISKIT_AVAILABLE = True
+except ImportError:
+    QISKIT_AVAILABLE = False
+
 # Import and expose functions from circuit_utils
 from .circuit_utils import (
     calculate_gate_fidelities,
@@ -23,9 +30,9 @@ from .io_utils import (
     save_circuit_to_qasm,
     load_circuit_from_qasm,
     save_circuit_safely,
-    save_circuit_image as io_save_circuit_image,
-    save_circuit_stats as io_save_circuit_stats,
-    save_benchmark_circuits as io_save_benchmark_circuits,
+    save_circuit_image,
+    save_circuit_stats,
+    save_benchmark_circuits,
     define_loaded_toffoli_network,
     ToffoliNetworkLoader
 )
@@ -41,15 +48,8 @@ from .visualization import (
     visualize_optimization
 )
 
-# Try to import Qiskit to check availability
-try:
-    from qiskit import QuantumCircuit
-    QISKIT_AVAILABLE = True
-except ImportError:
-    QISKIT_AVAILABLE = False
-
-# Package version
-__version__ = "0.1.0"
+# Package version - use the same as main package
+__version__ = "1.0.0"
 
 # Package metadata
 __author__ = "Quantum Optimization Team"
@@ -72,9 +72,9 @@ __all__ = [
     'save_circuit_to_qasm',
     'load_circuit_from_qasm',
     'save_circuit_safely',
-    'io_save_circuit_image',
-    'io_save_circuit_stats',
-    'io_save_benchmark_circuits',
+    'save_circuit_image',
+    'save_circuit_stats',
+    'save_benchmark_circuits',
     'define_loaded_toffoli_network',
     'ToffoliNetworkLoader',
     
@@ -91,10 +91,11 @@ __all__ = [
     'QISKIT_AVAILABLE'
 ]
 
-# Provide global QISKIT_AVAILABLE flag for consistent behavior across modules
-#import circuit_utils
-#import io_utils
-#import visualization
+# Ensure QISKIT_AVAILABLE is properly propagated to the submodules
+import sys
+from . import circuit_utils
+from . import io_utils
+from . import visualization
 
 circuit_utils.QISKIT_AVAILABLE = QISKIT_AVAILABLE
 io_utils.QISKIT_AVAILABLE = QISKIT_AVAILABLE

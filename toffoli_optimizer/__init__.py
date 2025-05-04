@@ -18,9 +18,7 @@ from .core import (
     ToffoliDepthOptimizer, 
     EnhancedToffoliDepthOptimizer,
     OptimizationStrategy,
-    ToffoliPatternLibrary,
-    ToffoliPatternGenerator,
-    ToffoliNetworkOptimizer
+    validate_physical_circuit
 )
 
 from .utils import (
@@ -29,7 +27,7 @@ from .utils import (
     validate_physical_circuit,
     estimate_fidelity,
     save_circuit_safely,
-    load_circuit_from_file
+    load_circuit_from_qasm
 )
 
 # Define version
@@ -46,9 +44,7 @@ __all__ = [
     'ToffoliDepthOptimizer',
     'EnhancedToffoliDepthOptimizer',
     'OptimizationStrategy',
-    'ToffoliPatternLibrary',
-    'ToffoliPatternGenerator',
-    'ToffoliNetworkOptimizer',
+    'validate_physical_circuit',
     
     # Utility components
     'QISKIT_AVAILABLE',
@@ -56,5 +52,5 @@ __all__ = [
     'validate_physical_circuit',
     'estimate_fidelity',
     'save_circuit_safely',
-    'load_circuit_from_file'
+    'load_circuit_from_qasm'
 ]

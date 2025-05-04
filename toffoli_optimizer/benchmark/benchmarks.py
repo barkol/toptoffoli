@@ -20,7 +20,7 @@ from ..core.optimizer import ToffoliDepthOptimizer, OptimizationStrategy
 
 # Import from utils
 from ..utils.circuit_utils import create_optimized_physical_mapping
-from ..utils.io_utils import save_circuit
+from ..utils.io_utils import save_circuit_to_qasm as save_circuit
 from ..utils.visualization import save_benchmark_circuits
 
 
@@ -85,97 +85,18 @@ class ComparisonBenchmark(ToffoliBenchmark):
         """Initialize with parent class configuration"""
         super().__init__(config)
     
-    def run_full_benchmark(self, coupling_map_provider=None):
-        """
-        Run the full benchmark with all configurations.
-        
-        Args:
-            coupling_map_provider: Function that returns a coupling map for a topology
-        
-        Returns:
-            dict: Dictionary with benchmark results
-        """
-        print("\n" + "="*80)
-        print("RUNNING FULL BENCHMARK")
-        print("="*80)
-        
-        # Define networks to benchmark
-        networks = {
-            "adder_2bit": {
-                "define_func": "define_toffoli_network",  # 2-bit adder
-                "num_qubits": 8
-            },
-            "variable_small": {
-                "define_func": "define_variable_toffoli_network",
-                "args": {"num_gates": 5, "num_qubits": 8},
-                "num_qubits": 8
-            },
-            "variable_medium": {
-                "define_func": "define_variable_toffoli_network",
-                "args": {"num_gates": 10, "num_qubits": 12},
-                "num_qubits": 12
-            }
-        }
-        
-        # Define topologies to benchmark
-        topologies = ["linear", "grid", "falcon"]
-        
-        # Define Qiskit optimization levels
-        optimization_levels = [1, 3]
-        
-        # Define target fidelities
-        target_fidelities = [0.9, 0.95, 0.99]
-        
-        # Import network generators
-        from ..utils.network_generators import define_toffoli_network, define_variable_toffoli_network
-        
-        # Run benchmarks for all combinations
-        for network_name, network_config in networks.items():
-            for topology in topologies:
-                for opt_level in optimization_levels:
-                    for fidelity in target_fidelities:
-                        try:
-                            # Get the appropriate define function
-                            if network_config["define_func"] == "define_toffoli_network":
-                                define_func = define_toffoli_network
-                            elif network_config["define_func"] == "define_variable_toffoli_network":
-                                args = network_config.get("args", {})
-                                define_func = lambda: define_variable_toffoli_network(**args)
-                            else:
-                                raise ValueError(f"Unknown define function: {network_config['define_func']}")
-                                
-                            self.run_benchmark(
-                                network_name,
-                                define_func,
-                                network_config["num_qubits"],
-                                topology,
-                                opt_level,
-                                fidelity,
-                                coupling_map_provider
-                            )
-                        except Exception as e:
-                            print(f"Error running benchmark for {network_name} on {topology}: {e}")
-                            traceback.print_exc()
-        
-        # Generate comprehensive report
-        self.generate_report()
-        
-        return self.results
-    
-    def run_benchmark(self, network_name, define_func, num_qubits, topology,
-                      optimization_level, target_fidelity, coupling_map_provider=None):
+    def run_benchmark(self, network_name, network_config, topology,
+                      optimization_level, target_fidelity):
         """
         Run a specific benchmark configuration.
         
         Args:
             network_name: Name of the Toffoli network
-            define_func: Function that defines the Toffoli network
-            num_qubits: Number of qubits in the network
+            network_config: Configuration for the network
             topology: Target topology ('linear', 'grid', 'falcon')
             optimization_level: Qiskit optimization level (0-3)
             target_fidelity: Target fidelity for optimization
-            coupling_map_provider: Function that returns a coupling map for a topology
-        
+            
         Returns:
             dict: Benchmark results
         """
@@ -189,6 +110,7 @@ class ComparisonBenchmark(ToffoliBenchmark):
         
         # Call the define function to get the Toffoli network
         try:
+            define_func = network_config["define_func"]
             toffoli_network = define_func()
             if isinstance(toffoli_network, tuple) and len(toffoli_network) >= 3:
                 toffoli_gates, output_qubits, input_qubits = toffoli_network
@@ -198,14 +120,13 @@ class ComparisonBenchmark(ToffoliBenchmark):
             print(f"Error defining Toffoli network: {e}")
             traceback.print_exc()
             return None
+        
+        # Get the number of qubits
+        num_qubits = network_config.get("num_qubits", 8)
             
         # Get coupling map for the selected topology
-        if coupling_map_provider:
-            coupling_map = coupling_map_provider(topology, num_qubits)
-        else:
-            # Import default provider if none specified
-            from ..utils.circuit_utils import get_default_coupling_map
-            coupling_map = get_default_coupling_map(topology, num_qubits)
+        from ..utils.circuit_utils import get_default_coupling_map
+        coupling_map = get_default_coupling_map(topology, num_qubits)
         
         basis_gates = ['id', 'rz', 'sx', 'x', 'cx']  # Common basis gates
         
@@ -605,8 +526,15 @@ class ComparisonBenchmark(ToffoliBenchmark):
             qiskit_gates = results["qiskit_transpiler"].get("gate_count", 0)
             
             # Calculate improvements
-            depth_improvement = ((qiskit_depth - toffoli_depth) / qiskit_depth * 100) if qiskit_depth > 0 else 0
-            gate_improvement = ((qiskit_gates - toffoli_gates) / qiskit_gates * 100) if qiskit_gates > 0 else 0
+            if qiskit_depth > 0:
+                depth_improvement = ((qiskit_depth - toffoli_depth) / qiskit_depth * 100)
+            else:
+                depth_improvement = 0
+                
+            if qiskit_gates > 0:
+                gate_improvement = ((qiskit_gates - toffoli_gates) / qiskit_gates * 100)
+            else:
+                gate_improvement = 0
             
             print("COMPARISON:")
             print(f"  Depth improvement of Toffoli Optimizer over Qiskit: {depth_improvement:.2f}%")
@@ -614,184 +542,7 @@ class ComparisonBenchmark(ToffoliBenchmark):
         
         print("="*80)
     
-    def generate_report(self):
-        """Generate a comprehensive report of all benchmark results"""
-        print("\nGenerating benchmark report...")
-        
-        # Create a directory for the report
-        report_dir = os.path.join(self.config["output_dir"], f"report_{self.timestamp}")
-        os.makedirs(report_dir, exist_ok=True)
-        
-        # Create visualizations directory
-        vis_dir = os.path.join(report_dir, "visualizations")
-        os.makedirs(vis_dir, exist_ok=True)
-        
-        # Generate summary report
-        self._generate_summary_report(report_dir)
-        
-        # Generate visualizations
-        self._generate_visualizations(vis_dir)
-        
-        # Save the full results
-        self._save_results()
-        
-        print(f"Benchmark report generated at {report_dir}")
-        
-    def _generate_summary_report(self, report_dir):
-        """Generate a summary report of the benchmark results"""
-        with open(os.path.join(report_dir, "summary.txt"), "w") as f:
-            f.write("="*80 + "\n")
-            f.write("TOFFOLI DEPTH OPTIMIZER BENCHMARK SUMMARY\n")
-            f.write("="*80 + "\n\n")
-            
-            f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Configuration:\n")
-            for key, value in self.config.items():
-                f.write(f"  {key}: {value}\n")
-            f.write("\n")
-            
-            # Aggregate results by topology and network
-            topologies = set()
-            networks = set()
-            
-            for config_key in self.results:
-                config = self.results[config_key]["config"]
-                topologies.add(config["topology"])
-                networks.add(config["network"])
-            
-            # Summary by topology
-            f.write("="*80 + "\n")
-            f.write("SUMMARY BY TOPOLOGY\n")
-            f.write("="*80 + "\n\n")
-            
-            for topology in sorted(topologies):
-                f.write(f"Topology: {topology}\n")
-                f.write("-"*80 + "\n")
-                
-                # Calculate average metrics for this topology
-                toffoli_depths = []
-                qiskit_depths = []
-                toffoli_improvements = []
-                
-                for config_key, result in self.results.items():
-                    if result["config"]["topology"] == topology:
-                        if ("toffoli_optimizer" in result and "error" not in result["toffoli_optimizer"] and
-                            "qiskit_transpiler" in result and "error" not in result["qiskit_transpiler"]):
-                            
-                            # Get toffoli depth (account for different result structures)
-                            if "mapped" in result["toffoli_optimizer"]:
-                                toffoli_depth = result["toffoli_optimizer"]["mapped"]["depth"]
-                            else:
-                                toffoli_depth = result["toffoli_optimizer"].get("physical_depth", 0)
-                            
-                            qiskit_depth = result["qiskit_transpiler"]["depth"]
-                            toffoli_depths.append(toffoli_depth)
-                            qiskit_depths.append(qiskit_depth)
-                            
-                            # Calculate improvement
-                            improvement = ((qiskit_depth - toffoli_depth) / qiskit_depth * 100) if qiskit_depth > 0 else 0
-                            toffoli_improvements.append(improvement)
-                
-                if toffoli_depths and qiskit_depths:
-                    avg_toffoli_depth = sum(toffoli_depths) / len(toffoli_depths)
-                    avg_qiskit_depth = sum(qiskit_depths) / len(qiskit_depths)
-                    avg_improvement = sum(toffoli_improvements) / len(toffoli_improvements)
-                    
-                    f.write(f"Average Toffoli Optimizer depth: {avg_toffoli_depth:.2f}\n")
-                    f.write(f"Average Qiskit transpiler depth: {avg_qiskit_depth:.2f}\n")
-                    f.write(f"Average improvement: {avg_improvement:.2f}%\n")
-                else:
-                    f.write("No valid results for this topology\n")
-                
-                f.write("\n")
-            
-            # Summary by network
-            f.write("="*80 + "\n")
-            f.write("SUMMARY BY NETWORK\n")
-            f.write("="*80 + "\n\n")
-            
-            # Similar implementation for network summary as for topology
-            for network in sorted(networks):
-                f.write(f"Network: {network}\n")
-                f.write("-"*80 + "\n")
-                
-                # Calculate metrics for each network...
-                # (similar to topology metrics calculation)
-                
-            # Overall summary
-            f.write("="*80 + "\n")
-            f.write("OVERALL SUMMARY\n")
-            f.write("="*80 + "\n\n")
-            
-            # Calculate overall metrics across all benchmarks...
-    
-    def _generate_visualizations(self, vis_dir):
-
-        """Generate visualizations of the benchmark results"""
-        # Prepare data for visualization
-        data = defaultdict(list)
-        
-        for config_key, result in self.results.items():
-            if ("toffoli_optimizer" in result and "error" not in result["toffoli_optimizer"] and
-                "qiskit_transpiler" in result and "error" not in result["qiskit_transpiler"]):
-                
-                config = result["config"]
-                topology = config["topology"]
-                network = config["network"]
-                opt_level = config["optimization_level"]
-                
-                # Extract metrics (handling different result structures)
-                if "mapped" in result["toffoli_optimizer"]:
-                    toffoli_depth = result["toffoli_optimizer"]["mapped"]["depth"]
-                else:
-                    toffoli_depth = result["toffoli_optimizer"].get("physical_depth", 0)
-                
-                qiskit_depth = result["qiskit_transpiler"]["depth"]
-                
-                # Calculate improvement percentage
-                improvement = ((qiskit_depth - toffoli_depth) / qiskit_depth * 100) if qiskit_depth > 0 else 0
-                
-                # Store data for visualization
-                data["topologies"].append(topology)
-                data["networks"].append(network)
-                data["opt_levels"].append(opt_level)
-                data["toffoli_depths"].append(toffoli_depth)
-                data["qiskit_depths"].append(qiskit_depth)
-                data["improvements"].append(improvement)
-        
-        # Create visualizations if we have data
-        if data["topologies"]:
-            # Topology comparisons
-            self._create_topology_comparison_plots(data, vis_dir)
-            
-            # Network comparisons
-            self._create_network_comparison_plots(data, vis_dir)
-            
-            # Overall comparison
-            self._create_overall_comparison_plots(data, vis_dir)
-    
-    def _create_topology_comparison_plots(self, data, vis_dir):
-
-        """Create topology comparison visualizations"""
-        # Implementation for topology visualization plots
-        pass
-    
-    def _create_network_comparison_plots(self, data, vis_dir):
-
-        """Create network comparison visualizations"""
-        # Implementation for network visualization plots
-        pass
-    
-
-    def _create_overall_comparison_plots(self, data, vis_dir):
-
-        """Create overall benchmark comparison visualizations"""
-        # Implementation for overall visualization plots
-        pass
-    
-
     def _save_results(self):
-
         """Save the benchmark results to disk"""
         results_dir = os.path.join(self.config["output_dir"], f"benchmark_{self.timestamp}")
         os.makedirs(results_dir, exist_ok=True)
@@ -807,9 +558,7 @@ class ComparisonBenchmark(ToffoliBenchmark):
             
         print(f"Results saved to {os.path.join(results_dir, 'all_results.json')}")
     
-
     def _make_serializable(self, obj):
-
         """Make an object JSON serializable by removing non-serializable components"""
         if isinstance(obj, dict):
             serializable_dict = {}
@@ -829,7 +578,6 @@ class ComparisonBenchmark(ToffoliBenchmark):
             return str(obj)
 
 
-# Include comprehensive benchmark class
 class ComprehensiveBenchmark(ComparisonBenchmark):
     """
     Extended benchmark class for comprehensive parameter sweeps.
@@ -866,294 +614,97 @@ class ComprehensiveBenchmark(ComparisonBenchmark):
         
         # Initialize network cache to store generated networks
         self.network_cache = {}
+
+
+def run_simple_benchmark(toffoli_gates, output_qubits, input_qubits, num_qubits,
+                      topology='linear', target_fidelity=0.95, output_dir=None,
+                      debug_mode=False):
+    """
+    Run a simple benchmark of the Toffoli Depth Optimizer.
     
-    def run_comprehensive_benchmark(self):
-        """
-        Run a comprehensive benchmark with parameter sweep.
+    This function provides a simpler interface to run a benchmark without needing
+    to create and configure benchmark classes directly.
+    
+    Args:
+        toffoli_gates (list): List of Toffoli gates to optimize
+        output_qubits (list): List of output qubit indices
+        input_qubits (list): List of input qubit indices
+        num_qubits (int): Number of qubits in the circuit
+        topology (str): Hardware topology ('linear', 'grid', 'falcon')
+        target_fidelity (float): Target fidelity for optimization
+        output_dir (str): Directory for benchmark output
+        debug_mode (bool): Whether to print debug information
         
-        This method runs benchmarks across all combinations of topologies,
-        fidelities, and network sizes specified in the configuration.
+    Returns:
+        dict: Dictionary with benchmark results
+    """
+    # Configure the benchmark
+    config = {
+        "output_dir": output_dir or "benchmark_results",
+        "repetitions": 1,
+        "max_passes": 2,
+        "target_fidelity": target_fidelity,
+        "use_parallel": False,
+        "debug_mode": debug_mode
+    }
+    
+    # Create the benchmark
+    benchmark = ComparisonBenchmark(config)
+    
+    # Create a network config function
+    def network_func():
+        return (toffoli_gates, output_qubits, input_qubits)
+    
+    network_config = {
+        "define_func": network_func,
+        "num_qubits": num_qubits
+    }
+    
+    # Run the benchmark
+    print(f"Running benchmark for {len(toffoli_gates)} Toffoli gates on {num_qubits} qubits...")
+    
+    results = benchmark.run_benchmark(
+        network_name="custom_network",
+        network_config=network_config,
+        topology=topology,
+        optimization_level=3,
+        target_fidelity=target_fidelity
+    )
+    
+    # Print a summary of the results
+    if results:
+        print("\nBenchmark Results:")
+        print("=" * 60)
         
-        Returns:
-            dict: Dictionary with all benchmark results
-        """
-        # Implementation for comprehensive benchmark
-        pass
-
-
-    def _create_topology_comparison_plots(self, data, vis_dir):
-        """Create topology comparison visualizations"""
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        # Get unique topologies
-        topologies = sorted(list(set(data["topologies"])))
-
-        # Create depth comparison plot for different topologies
-        plt.figure(figsize=(12, 8))
-
-        # Group data by topology
-        topo_depths = {topo: {'toffoli': [], 'qiskit': []} for topo in topologies}
-
-        for i in range(len(data["topologies"])):
-            topo = data["topologies"][i]
-            topo_depths[topo]['toffoli'].append(data["toffoli_depths"][i])
-            topo_depths[topo]['qiskit'].append(data["qiskit_depths"][i])
-
-        # Get average depths
-        avg_toffoli = [np.mean(topo_depths[topo]['toffoli']) for topo in topologies]
-        avg_qiskit = [np.mean(topo_depths[topo]['qiskit']) for topo in topologies]
-
-        # Set up bar chart
-        x = np.arange(len(topologies))
-        width = 0.35
-
-        fig, ax = plt.subplots(figsize=(12, 6))
-        toffoli_bars = ax.bar(x - width/2, avg_toffoli, width, label='Toffoli Optimizer')
-        qiskit_bars = ax.bar(x + width/2, avg_qiskit, width, label='Qiskit Transpiler')
-
-        # Add labels and title
-        ax.set_xlabel('Topology')
-        ax.set_ylabel('Average Circuit Depth')
-        ax.set_title('Circuit Depth by Topology')
-        ax.set_xticks(x)
-        ax.set_xticklabels(topologies)
-        ax.legend()
-
-        # Add value labels on bars
-        for bar in toffoli_bars:
-            height = bar.get_height()
-            ax.annotate(f'{height:.1f}',
-                       xy=(bar.get_x() + bar.get_width() / 2, height),
-                       xytext=(0, 3),  # 3 points vertical offset
-                       textcoords="offset points",
-                       ha='center', va='bottom')
-
-        for bar in qiskit_bars:
-            height = bar.get_height()
-            ax.annotate(f'{height:.1f}',
-                       xy=(bar.get_x() + bar.get_width() / 2, height),
-                       xytext=(0, 3),  # 3 points vertical offset
-                       textcoords="offset points",
-                       ha='center', va='bottom')
-
-        plt.tight_layout()
-        plt.savefig(f"{vis_dir}/topology_depth_comparison.png")
-        plt.close()
-
-        # Create improvement percentage plot
-        improvements = []
-        for topo in topologies:
-            toffoli_avg = np.mean(topo_depths[topo]['toffoli'])
-            qiskit_avg = np.mean(topo_depths[topo]['qiskit'])
-            if qiskit_avg > 0:
-                improvement = ((qiskit_avg - toffoli_avg) / qiskit_avg) * 100
-            else:
-                improvement = 0
-            improvements.append(improvement)
-
-        plt.figure(figsize=(12, 6))
-        bars = plt.bar(topologies, improvements, color='green')
-
-        # Add labels and title
-        plt.xlabel('Topology')
-        plt.ylabel('Depth Improvement (%)')
-        plt.title('Toffoli Optimizer Improvement Over Qiskit by Topology')
-
-        # Add value labels on bars
-        for bar in bars:
-            height = bar.get_height()
-            plt.annotate(f'{height:.1f}%',
-                        xy=(bar.get_x() + bar.get_width() / 2, height),
-                        xytext=(0, 3),  # 3 points vertical offset
-                        textcoords="offset points",
-                        ha='center', va='bottom')
-
-        plt.tight_layout()
-        plt.savefig(f"{vis_dir}/topology_improvement.png")
-        plt.close()
-
-    def _create_network_comparison_plots(self, data, vis_dir):
-        """Create network comparison visualizations"""
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        # Get unique networks
-        networks = sorted(list(set(data["networks"])))
-
-        # Create depth comparison plot for different networks
-        plt.figure(figsize=(12, 8))
-
-        # Group data by network
-        network_depths = {net: {'toffoli': [], 'qiskit': []} for net in networks}
-
-        for i in range(len(data["networks"])):
-            net = data["networks"][i]
-            network_depths[net]['toffoli'].append(data["toffoli_depths"][i])
-            network_depths[net]['qiskit'].append(data["qiskit_depths"][i])
-
-        # Get average depths
-        avg_toffoli = [np.mean(network_depths[net]['toffoli']) for net in networks]
-        avg_qiskit = [np.mean(network_depths[net]['qiskit']) for net in networks]
-
-        # Set up bar chart
-        x = np.arange(len(networks))
-        width = 0.35
-
-        fig, ax = plt.subplots(figsize=(12, 6))
-        toffoli_bars = ax.bar(x - width/2, avg_toffoli, width, label='Toffoli Optimizer')
-        qiskit_bars = ax.bar(x + width/2, avg_qiskit, width, label='Qiskit Transpiler')
-
-        # Add labels and title
-        ax.set_xlabel('Network Type')
-        ax.set_ylabel('Average Circuit Depth')
-        ax.set_title('Circuit Depth by Network Type')
-        ax.set_xticks(x)
-        ax.set_xticklabels(networks)
-        ax.legend()
-
-        # Add value labels on bars
-        for bar in toffoli_bars:
-            height = bar.get_height()
-            ax.annotate(f'{height:.1f}',
-                       xy=(bar.get_x() + bar.get_width() / 2, height),
-                       xytext=(0, 3),  # 3 points vertical offset
-                       textcoords="offset points",
-                       ha='center', va='bottom')
-
-        for bar in qiskit_bars:
-            height = bar.get_height()
-            ax.annotate(f'{height:.1f}',
-                       xy=(bar.get_x() + bar.get_width() / 2, height),
-                       xytext=(0, 3),  # 3 points vertical offset
-                       textcoords="offset points",
-                       ha='center', va='bottom')
-
-        plt.tight_layout()
-        plt.savefig(f"{vis_dir}/network_depth_comparison.png")
-        plt.close()
-
-        # Create improvement percentage plot
-        improvements = []
-        for net in networks:
-            toffoli_avg = np.mean(network_depths[net]['toffoli'])
-            qiskit_avg = np.mean(network_depths[net]['qiskit'])
-            if qiskit_avg > 0:
-                improvement = ((qiskit_avg - toffoli_avg) / qiskit_avg) * 100
-            else:
-                improvement = 0
-            improvements.append(improvement)
-
-        plt.figure(figsize=(12, 6))
-        bars = plt.bar(networks, improvements, color='green')
-
-        # Add labels and title
-        plt.xlabel('Network Type')
-        plt.ylabel('Depth Improvement (%)')
-        plt.title('Toffoli Optimizer Improvement Over Qiskit by Network Type')
-
-        # Add value labels on bars
-        for bar in bars:
-            height = bar.get_height()
-            plt.annotate(f'{height:.1f}%',
-                        xy=(bar.get_x() + bar.get_width() / 2, height),
-                        xytext=(0, 3),  # 3 points vertical offset
-                        textcoords="offset points",
-                        ha='center', va='bottom')
-
-        plt.tight_layout()
-        plt.savefig(f"{vis_dir}/network_improvement.png")
-        plt.close()
-
-    def _create_overall_comparison_plots(self, data, vis_dir):
-        """Create overall benchmark comparison visualizations"""
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        # Calculate overall statistics
-        toffoli_depths = np.array(data["toffoli_depths"])
-        qiskit_depths = np.array(data["qiskit_depths"])
-
-        # Create boxplot comparison
-        plt.figure(figsize=(10, 6))
-
-        box_data = [toffoli_depths, qiskit_depths]
-        labels = ['Toffoli Optimizer', 'Qiskit Transpiler']
-
-        box = plt.boxplot(box_data, patch_artist=True, labels=labels)
-
-        # Fill boxes with colors
-        colors = ['lightblue', 'lightgreen']
-        for patch, color in zip(box['boxes'], colors):
-            patch.set_facecolor(color)
-
-        # Add labels and title
-        plt.ylabel('Circuit Depth')
-        plt.title('Overall Circuit Depth Comparison')
-
-        # Add statistical annotations
-        toffoli_mean = np.mean(toffoli_depths)
-        qiskit_mean = np.mean(qiskit_depths)
-
-        plt.figtext(0.15, 0.01, f'Toffoli: Mean={toffoli_mean:.2f}, Median={np.median(toffoli_depths):.2f}',
-                   horizontalalignment='left', fontsize=10)
-        plt.figtext(0.65, 0.01, f'Qiskit: Mean={qiskit_mean:.2f}, Median={np.median(qiskit_depths):.2f}',
-                   horizontalalignment='left', fontsize=10)
-
-        plt.tight_layout(rect=[0, 0.05, 1, 1])  # Adjust for text at bottom
-        plt.savefig(f"{vis_dir}/overall_depth_comparison.png")
-        plt.close()
-
-        # Create overall improvement chart
-        improvements = []
-        for i in range(len(toffoli_depths)):
-            if qiskit_depths[i] > 0:
-                imp = ((qiskit_depths[i] - toffoli_depths[i]) / qiskit_depths[i]) * 100
-            else:
-                imp = 0
-            improvements.append(imp)
-
-        # Create histogram of improvements
-        plt.figure(figsize=(10, 6))
-        plt.hist(improvements, bins=10, color='green', alpha=0.7, edgecolor='black')
-
-        # Add mean line
-        mean_imp = np.mean(improvements)
-        plt.axvline(mean_imp, color='red', linestyle='dashed', linewidth=2, 
-                   label=f'Mean: {mean_imp:.2f}%')
-
-        # Add labels and title
-        plt.xlabel('Depth Improvement (%)')
-        plt.ylabel('Frequency')
-        plt.title('Distribution of Depth Improvements')
-        plt.legend()
-
-        plt.tight_layout()
-        plt.savefig(f"{vis_dir}/improvement_distribution.png")
-        plt.close()
-
-        # Create summary pie chart for improvements
-        positive_imps = sum(1 for imp in improvements if imp > 0)
-        neutral_imps = sum(1 for imp in improvements if imp == 0)
-        negative_imps = sum(1 for imp in improvements if imp < 0)
-
-        if positive_imps + neutral_imps + negative_imps > 0:  # Ensure we have data
-            plt.figure(figsize=(10, 6))
-
-            sizes = [positive_imps, neutral_imps, negative_imps]
-            labels = ['Improvement', 'No Change', 'Regression']
-            colors = ['green', 'gray', 'red']
-            explode = (0.1, 0, 0)  # explode the 'Improvement' slice
-
-            plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
-                   shadow=True, startangle=90)
-            plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
-
-            plt.title('Comparison Results Overview')
-            plt.tight_layout()
-            plt.savefig(f"{vis_dir}/results_overview.png")
-            plt.close()
-
-
-# Export benchmark classes
-__all__ = ['ToffoliBenchmark', 'ComparisonBenchmark', 'ComprehensiveBenchmark']
+        # Toffoli Optimizer results
+        if "toffoli_optimizer" in results and "error" not in results["toffoli_optimizer"]:
+            toffoli = results["toffoli_optimizer"]
+            print("Toffoli Optimizer:")
+            print(f"  Logical depth: {results['logical']['depth']}")
+            print(f"  Naive physical depth: {results['original']['depth']}")
+            
+            # The optimized depth might be under different keys
+            if "optimized" in toffoli:
+                print(f"  Optimized logical depth: {toffoli['optimized']['depth']}")
+            
+            # The physical depth might be under 'mapped' or directly
+            if "mapped" in toffoli:
+                print(f"  Final physical depth: {toffoli['mapped']['depth']}")
+                print(f"  Final gate count: {toffoli['mapped']['gate_count']}")
+                print(f"  Final CNOT count: {toffoli['mapped']['cx_count']}")
+            
+            print(f"  Depth reduction: {toffoli.get('depth_reduction', 0):.2f}%")
+            print(f"  Depth reduction from naive mapping: {toffoli.get('depth_reduction_from_naive', 0):.2f}%")
+        
+        # Qiskit Transpiler results
+        if "qiskit_transpiler" in results and "error" not in results["qiskit_transpiler"]:
+            qiskit = results["qiskit_transpiler"]
+            print("\nQiskit Transpiler:")
+            print(f"  Transpiled depth: {qiskit.get('depth', 0)}")
+            print(f"  Gate count: {qiskit.get('gate_count', 0)}")
+            print(f"  CNOT count: {qiskit.get('cx_count', 0)}")
+            print(f"  Depth reduction: {qiskit.get('depth_reduction', 0):.2f}%")
+        
+        print("=" * 60)
+    
+    return results

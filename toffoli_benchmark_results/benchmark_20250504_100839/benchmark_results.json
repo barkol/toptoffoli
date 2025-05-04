@@ -1,0 +1,85 @@
+{
+  "config": {
+    "network": "custom_network",
+    "topology": "grid",
+    "optimization_level": 3,
+    "target_fidelity": 0.95,
+    "num_qubits": 12,
+    "num_toffoli_gates": 10
+  },
+  "logical": {
+    "depth": 76,
+    "gate_count": 160,
+    "cx_count": 60
+  },
+  "original": {
+    "depth": 118,
+    "gate_count": 218,
+    "cx_count": 103,
+    "description": "Naive mapping to physical topology"
+  },
+  "toffoli_optimizer": {
+    "logical": {
+      "depth": 76,
+      "gate_count": 160,
+      "cx_count": 60,
+      "t_gates": 80
+    },
+    "naive_physical": {
+      "depth": 118,
+      "gate_count": 218,
+      "cx_count": 103,
+      "t_gates": 0
+    },
+    "optimized": {
+      "depth": 76,
+      "gate_count": 160,
+      "cx_count": 60,
+      "t_gates": 80,
+      "best_pass": 0,
+      "early_termination_would_trigger": true,
+      "pass_timeout_count": 0,
+      "physical_fidelity": 0.4871933451977441,
+      "logical_fidelity": 0.9
+    },
+    "final": {
+      "depth": 76,
+      "gate_count": 160,
+      "cx_count": 60,
+      "t_gates": 80
+    },
+    "mapped": {
+      "depth": 119,
+      "gate_count": 232,
+      "cx_count": 102,
+      "t_gates": 0,
+      "logical_fidelity": 0.9,
+      "physical_fidelity": 0.30782191718719737,
+      "physical_depth": 119,
+      "respects_coupling_map": true,
+      "fidelity": 0.30782191718719737
+    },
+    "depth_reduction": 0.0,
+    "depth_reduction_from_naive": -0.847457627118644,
+    "execution_time": 0.17910313606262207,
+    "optimization_time": 0.15750622749328613
+  },
+  "qiskit_transpiler": {
+    "depth": 143,
+    "gate_count": 238,
+    "cx_count": 97,
+    "t_gates": 0,
+    "execution_time": 0.045310020446777344,
+    "depth_reduction": -88.1578947368421,
+    "depth_reduction_from_naive": -5.9259259259259265,
+    "fidelity": 0.32014294539298344,
+    "optimization_level": 3
+  },
+  "image_paths": {
+    "logical": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/logical_circuit_20250504_100839.txt",
+    "original": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/original_circuit_20250504_100839.txt",
+    "toffoli_mapped": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/toffoli_mapped_circuit_20250504_100839.txt",
+    "toffoli_optimized": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/toffoli_optimized_circuit_20250504_100839.txt",
+    "qiskit": "toffoli_benchmark_results/custom_network_grid_opt3_fid0.95/qiskit_circuit_20250504_100839.txt"
+  }
+}
