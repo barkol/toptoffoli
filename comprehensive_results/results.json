@@ -1,0 +1,372 @@
+{
+  "Transpile_L1": {
+    "0.85": {
+      "runtime": 0.011487960815429688,
+      "original_depth": 85,
+      "optimized_depth": 81,
+      "depth_reduction": 4.705882352941177,
+      "gate_count": 115,
+      "cx_count": 81,
+      "optimization_level": 1,
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.005808115005493164,
+      "original_depth": 85,
+      "optimized_depth": 81,
+      "depth_reduction": 4.705882352941177,
+      "gate_count": 115,
+      "cx_count": 81,
+      "optimization_level": 1,
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.005558013916015625,
+      "original_depth": 85,
+      "optimized_depth": 81,
+      "depth_reduction": 4.705882352941177,
+      "gate_count": 115,
+      "cx_count": 81,
+      "optimization_level": 1,
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.004606008529663086,
+      "original_depth": 85,
+      "optimized_depth": 81,
+      "depth_reduction": 4.705882352941177,
+      "gate_count": 115,
+      "cx_count": 81,
+      "optimization_level": 1,
+      "target_fidelity": 0.99
+    }
+  },
+  "Transpile_L2": {
+    "0.85": {
+      "runtime": 0.00769805908203125,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 2,
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.006577968597412109,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 2,
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.018034934997558594,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 2,
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.007019996643066406,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 2,
+      "target_fidelity": 0.99
+    }
+  },
+  "Transpile_L3": {
+    "0.85": {
+      "runtime": 0.011998176574707031,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 3,
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.010518789291381836,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 3,
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.010136127471923828,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 3,
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.008496999740600586,
+      "original_depth": 85,
+      "optimized_depth": 53,
+      "depth_reduction": 37.64705882352941,
+      "gate_count": 87,
+      "cx_count": 53,
+      "optimization_level": 3,
+      "target_fidelity": 0.99
+    }
+  },
+  "Consolidated_STANDARD": {
+    "0.85": {
+      "runtime": 0.7796170711517334,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "STANDARD",
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.7803139686584473,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "STANDARD",
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.7534489631652832,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "STANDARD",
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.7740049362182617,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "STANDARD",
+      "target_fidelity": 0.99
+    }
+  },
+  "Consolidated_ULTRA_DEPTH_REDUCTION": {
+    "0.85": {
+      "runtime": 0.7972638607025146,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "ULTRA_DEPTH_REDUCTION",
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.8063321113586426,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "ULTRA_DEPTH_REDUCTION",
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.7886300086975098,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "ULTRA_DEPTH_REDUCTION",
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.8077540397644043,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "ULTRA_DEPTH_REDUCTION",
+      "target_fidelity": 0.99
+    }
+  },
+  "Consolidated_DEPTH_FIDELITY_BALANCE": {
+    "0.85": {
+      "runtime": 0.7769818305969238,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "DEPTH_FIDELITY_BALANCE",
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.79860520362854,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "DEPTH_FIDELITY_BALANCE",
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.7996351718902588,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "DEPTH_FIDELITY_BALANCE",
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.7756748199462891,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "DEPTH_FIDELITY_BALANCE",
+      "target_fidelity": 0.99
+    }
+  },
+  "Consolidated_HYBRID": {
+    "0.85": {
+      "runtime": 0.7813050746917725,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "HYBRID",
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.7562479972839355,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "HYBRID",
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.7613010406494141,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "HYBRID",
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.7874240875244141,
+      "original_depth": 85,
+      "optimized_depth": 0,
+      "depth_reduction": 100.0,
+      "gate_count": 0,
+      "cx_count": 0,
+      "strategy": "HYBRID",
+      "target_fidelity": 0.99
+    }
+  },
+  "RL_Optimizer": {
+    "0.85": {
+      "runtime": 0.0004031658172607422,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.00043010711669921875,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.0004870891571044922,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.001024007797241211,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.99
+    }
+  },
+  "ZX_Optimizer": {
+    "0.85": {
+      "runtime": 0.03116130828857422,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.85
+    },
+    "0.9": {
+      "runtime": 0.025847196578979492,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.9
+    },
+    "0.95": {
+      "runtime": 0.034957170486450195,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.95
+    },
+    "0.99": {
+      "runtime": 0.03433108329772949,
+      "original_depth": 85,
+      "optimized_depth": 85,
+      "depth_reduction": 0.0,
+      "gate_count": 119,
+      "cx_count": 85,
+      "target_fidelity": 0.99
+    }
+  }
+}

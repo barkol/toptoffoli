@@ -1,0 +1,55 @@
+Toffoli Circuit Optimization Sweep Results
+================================================================================
+
+Method                    Fidelity   Original Depth  Optimized Depth Depth Reduction Gate Count   CX Count   Runtime (s) 
+------------------------------------------------------------------------------------------------------------------------
+Consolidated_DEPTH_FIDELITY_BALANCE 0.850      85              0               100.00          0            0          0.78        
+Consolidated_DEPTH_FIDELITY_BALANCE 0.900      85              0               100.00          0            0          0.80        
+Consolidated_DEPTH_FIDELITY_BALANCE 0.950      85              0               100.00          0            0          0.80        
+Consolidated_DEPTH_FIDELITY_BALANCE 0.990      85              0               100.00          0            0          0.78        
+Consolidated_HYBRID       0.850      85              0               100.00          0            0          0.78        
+Consolidated_HYBRID       0.900      85              0               100.00          0            0          0.76        
+Consolidated_HYBRID       0.950      85              0               100.00          0            0          0.76        
+Consolidated_HYBRID       0.990      85              0               100.00          0            0          0.79        
+Consolidated_STANDARD     0.850      85              0               100.00          0            0          0.78        
+Consolidated_STANDARD     0.900      85              0               100.00          0            0          0.78        
+Consolidated_STANDARD     0.950      85              0               100.00          0            0          0.75        
+Consolidated_STANDARD     0.990      85              0               100.00          0            0          0.77        
+Consolidated_ULTRA_DEPTH_REDUCTION 0.850      85              0               100.00          0            0          0.80        
+Consolidated_ULTRA_DEPTH_REDUCTION 0.900      85              0               100.00          0            0          0.81        
+Consolidated_ULTRA_DEPTH_REDUCTION 0.950      85              0               100.00          0            0          0.79        
+Consolidated_ULTRA_DEPTH_REDUCTION 0.990      85              0               100.00          0            0          0.81        
+RL_Optimizer              0.850      85              85              0.00            119          85         0.00        
+RL_Optimizer              0.900      85              85              0.00            119          85         0.00        
+RL_Optimizer              0.950      85              85              0.00            119          85         0.00        
+RL_Optimizer              0.990      85              85              0.00            119          85         0.00        
+Transpile_L1              0.850      85              81              4.71            115          81         0.01        
+Transpile_L1              0.900      85              81              4.71            115          81         0.01        
+Transpile_L1              0.950      85              81              4.71            115          81         0.01        
+Transpile_L1              0.990      85              81              4.71            115          81         0.00        
+Transpile_L2              0.850      85              53              37.65           87           53         0.01        
+Transpile_L2              0.900      85              53              37.65           87           53         0.01        
+Transpile_L2              0.950      85              53              37.65           87           53         0.02        
+Transpile_L2              0.990      85              53              37.65           87           53         0.01        
+Transpile_L3              0.850      85              53              37.65           87           53         0.01        
+Transpile_L3              0.900      85              53              37.65           87           53         0.01        
+Transpile_L3              0.950      85              53              37.65           87           53         0.01        
+Transpile_L3              0.990      85              53              37.65           87           53         0.01        
+ZX_Optimizer              0.850      85              85              0.00            119          85         0.03        
+ZX_Optimizer              0.900      85              85              0.00            119          85         0.03        
+ZX_Optimizer              0.950      85              85              0.00            119          85         0.03        
+ZX_Optimizer              0.990      85              85              0.00            119          85         0.03        
+
+
+Best Results:
+------------------------------------------------------------
+Best depth reduction: 100.00% achieved by:
+  Method: Consolidated_STANDARD
+  Target fidelity: 0.85
+
+Best efficiency (depth reduction / runtime): 5723.20 achieved by:
+  Method: Transpile_L2
+  Target fidelity: 0.9
+
+
+Results generated at: 2025-05-04 20:42:39

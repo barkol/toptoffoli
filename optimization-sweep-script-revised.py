@@ -19,6 +19,7 @@ import argparse
 from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+from enum import Enum
 
 # First, let's check what modules are available in your repository
 available_modules = {}
@@ -34,7 +35,7 @@ except ImportError as e:
 
 # Try to import the RLToffoliOptimizer
 try:
-    from toffoli_optimizer.core.optimizer import RLToffoliOptimizer
+    from toffoli_optimizer.core.rl_optimizer import RLToffoliOptimizer
     available_modules["rl_optimizer"] = True
     print("Successfully imported RLToffoliOptimizer")
 except ImportError as e:
@@ -49,6 +50,22 @@ try:
 except ImportError as e:
     available_modules["zx_optimizer"] = False
     print(f"Could not import ZXOptimizer: {e}")
+
+# Try to import the ConsolidatedToffoliDepthOptimizer
+try:
+    from toffoli_optimizer.core.optimizer import ConsolidatedToffoliDepthOptimizer, OptimizationStrategy
+    available_modules["consolidated_optimizer"] = True
+    print("Successfully imported ConsolidatedToffoliDepthOptimizer")
+except ImportError as e:
+    try:
+        # It might be under a different name in some versions of the repo
+        from toffoli_optimizer.core.optimizer import ToffoliDepthOptimizer as ConsolidatedToffoliDepthOptimizer
+        from toffoli_optimizer.core.optimizer import OptimizationStrategy
+        available_modules["consolidated_optimizer"] = True
+        print("Successfully imported ToffoliDepthOptimizer as ConsolidatedToffoliDepthOptimizer")
+    except ImportError as e2:
+        available_modules["consolidated_optimizer"] = False
+        print(f"Could not import ConsolidatedToffoliDepthOptimizer: {e2}")
 
 # Try to import utility functions
 try:
@@ -75,6 +92,22 @@ except ImportError as e:
     available_modules["visualization"] = False
     print(f"Could not import visualization utilities: {e}")
 
+# Try to import SynchronizingCircuit with better error handling
+try:
+    from SynchronizingCircuit import ShiftExperiment_FlowControl
+    print("Successfully imported ShiftExperiment_FlowControl")
+except ImportError:
+    try:
+        from scripts.SynchronizingCircuit import ShiftExperiment_FlowControl
+        print("Successfully imported ShiftExperiment_FlowControl from scripts directory")
+    except ImportError as e:
+        print(f"Error importing ShiftExperiment_FlowControl: {e}")
+        print("Please ensure scripts/SynchronizingCircuit.py is accessible")
+        # Provide dummy class for testing
+        class ShiftExperiment_FlowControl:
+            def __init__(self, qubits=2, ancillas=3, controlling_anc=2):
+                self.Part2 = None
+
 # Check if we have the necessary components to proceed
 essential_modules = ["compiler", "io_utils", "circuit_utils"]
 missing_modules = [m for m in essential_modules if not available_modules.get(m, False)]
@@ -95,7 +128,7 @@ def parse_args():
                        help='Output directory for optimization results')
     
     parser.add_argument('--topology', type=str, default='linear',
-                       choices=['linear', 'grid', 'falcon'], 
+                       choices=['linear', 'grid', 'falcon'],
                        help='Target topology')
     
     parser.add_argument('--num-trials', type=int, default=3,
@@ -120,7 +153,7 @@ def create_results_table(all_results, output_file):
         f.write("=" * 80 + "\n\n")
         
         # Write a summary table
-        f.write(f"{'Method':<20} {'Fidelity':<10} {'Original Depth':<15} ")
+        f.write(f"{'Method':<25} {'Fidelity':<10} {'Original Depth':<15} ")
         f.write(f"{'Optimized Depth':<15} {'Depth Reduction':<15} ")
         f.write(f"{'Gate Count':<12} {'CX Count':<10} {'Runtime (s)':<12}\n")
         f.write("-" * 120 + "\n")
@@ -136,7 +169,7 @@ def create_results_table(all_results, output_file):
                 runtime = result.get("runtime", 0)
                 
                 # Format and write the row
-                f.write(f"{method:<20} {float(fidelity):<10.3f} {original_depth:<15} ")
+                f.write(f"{method:<25} {float(fidelity):<10.3f} {original_depth:<15} ")
                 f.write(f"{optimized_depth:<15} {depth_reduction:<15.2f} ")
                 f.write(f"{gate_count:<12} {cx_count:<10} {runtime:<12.2f}\n")
         
@@ -266,7 +299,7 @@ def optimize_with_rl(circuit, coupling_map, target_fidelity, num_trials=3, debug
                     "runtime": time.time() - start_time,
                     "original_depth": circuit.depth(),
                     "optimized_depth": optimized_circuit.depth(),
-                    "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100) 
+                    "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100)
                                       if circuit.depth() > 0 else 0,
                     "gate_count": len(optimized_circuit.data),
                     "cx_count": sum(1 for g in optimized_circuit.data if g.operation.name == 'cx')
@@ -305,7 +338,7 @@ def optimize_with_zx(circuit, coupling_map, target_fidelity, debug=False):
             "runtime": time.time() - start_time,
             "original_depth": circuit.depth(),
             "optimized_depth": optimized_circuit.depth(),
-            "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100) 
+            "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100)
                               if circuit.depth() > 0 else 0,
             "gate_count": len(optimized_circuit.data),
             "cx_count": sum(1 for g in optimized_circuit.data if g.operation.name == 'cx')
@@ -313,6 +346,109 @@ def optimize_with_zx(circuit, coupling_map, target_fidelity, debug=False):
     
     except Exception as e:
         print(f"Error running ZX optimization: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def optimize_with_consolidated(circuit, coupling_map, target_fidelity, strategy, debug=False):
+    """Optimize circuit using ConsolidatedToffoliDepthOptimizer with specified strategy"""
+    if not available_modules.get("consolidated_optimizer", False):
+        print("ConsolidatedToffoliDepthOptimizer not available, skipping")
+        return None
+    
+    try:
+        # Get the optimization strategy
+        if isinstance(strategy, str):
+            # Convert string to enum
+            strategy_enum = None
+            for strat in OptimizationStrategy:
+                if strat.name == strategy:
+                    strategy_enum = strat
+                    break
+            if strategy_enum is None:
+                print(f"Unknown strategy: {strategy}, defaulting to STANDARD")
+                strategy_enum = OptimizationStrategy.STANDARD
+        else:
+            strategy_enum = strategy
+            
+        # Set min_fidelity based on the target_fidelity and strategy
+        min_fidelity = target_fidelity
+        if strategy_enum == OptimizationStrategy.ULTRA_DEPTH_REDUCTION:
+            min_fidelity = max(0.8, target_fidelity - 0.1)  # More aggressive
+        
+        # Create the optimizer
+        optimizer = ConsolidatedToffoliDepthOptimizer(
+            target_fidelity=target_fidelity,
+            min_fidelity=min_fidelity,
+            max_passes=2,  # Reasonable default
+            debug_mode=debug,
+            strategy=strategy_enum,
+            use_zx_optimization=available_modules.get("zx_optimizer", False),
+            use_rl_optimization=available_modules.get("rl_optimizer", False)
+        )
+        
+        # Run optimization
+        start_time = time.time()
+        
+        # Since the optimizer is designed for Toffoli networks, we'll mimic the calling pattern
+        # of the other optimizer methods and just optimize the circuit directly
+        toffoli_gates = []  # Not actually used in direct circuit optimization
+        input_qubits = []   # Not actually used in direct circuit optimization
+        output_qubits = []  # Not actually used in direct circuit optimization
+        
+        # Get circuit optimizer from the class if available
+        if hasattr(optimizer, "optimize_circuit"):
+            optimized_circuit = optimizer.optimize_circuit(circuit.copy(), coupling_map=coupling_map)
+            
+            # Calculate metrics
+            result = {
+                "circuit": optimized_circuit,
+                "runtime": time.time() - start_time,
+                "original_depth": circuit.depth(),
+                "optimized_depth": optimized_circuit.depth(),
+                "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100)
+                                  if circuit.depth() > 0 else 0,
+                "gate_count": len(optimized_circuit.data),
+                "cx_count": sum(1 for g in optimized_circuit.data if g.operation.name == 'cx'),
+                "strategy": strategy_enum.name
+            }
+            
+            return result
+        else:
+            # Fallback to optimize_toffoli_network if direct circuit optimization is not available
+            print("Direct circuit optimization not available, falling back to optimize_toffoli_network")
+            result = optimizer.optimize_toffoli_network(
+                toffoli_gates,
+                output_qubits,
+                input_qubits,
+                circuit.num_qubits,
+                topology=None,  # Use coupling_map instead
+                coupling_map=coupling_map,
+                original_circuit=circuit.copy()  # Pass original circuit for optimization
+            )
+            
+            # Extract the optimized circuit from results
+            if "optimized" in result and "circuit" in result["optimized"]:
+                optimized_circuit = result["optimized"]["circuit"]
+                
+                # Calculate metrics
+                return {
+                    "circuit": optimized_circuit,
+                    "runtime": time.time() - start_time,
+                    "original_depth": circuit.depth(),
+                    "optimized_depth": optimized_circuit.depth(),
+                    "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100)
+                                      if circuit.depth() > 0 else 0,
+                    "gate_count": len(optimized_circuit.data),
+                    "cx_count": sum(1 for g in optimized_circuit.data if g.operation.name == 'cx'),
+                    "strategy": strategy_enum.name
+                }
+            else:
+                print("Failed to extract optimized circuit from results")
+                return None
+    
+    except Exception as e:
+        print(f"Error running ConsolidatedToffoliDepthOptimizer: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -334,7 +470,7 @@ def optimize_with_transpiler(circuit, coupling_map, optimization_level=3):
             "runtime": time.time() - start_time,
             "original_depth": circuit.depth(),
             "optimized_depth": optimized_circuit.depth(),
-            "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100) 
+            "depth_reduction": ((circuit.depth() - optimized_circuit.depth()) / circuit.depth() * 100)
                               if circuit.depth() > 0 else 0,
             "gate_count": len(optimized_circuit.data),
             "cx_count": sum(1 for g in optimized_circuit.data if g.operation.name == 'cx'),
@@ -347,7 +483,7 @@ def optimize_with_transpiler(circuit, coupling_map, optimization_level=3):
         traceback.print_exc()
         return None
 
-def run_optimization_sweep(toffoli_gates, output_qubits, input_qubits, num_qubits, 
+def run_optimization_sweep(toffoli_gates, output_qubits, input_qubits, num_qubits,
                           topology, num_trials, target_fidelities, debug, output_dir):
     """
     Run a sweep of various optimization methods on the input circuit.
@@ -457,7 +593,66 @@ def run_optimization_sweep(toffoli_gates, output_qubits, input_qubits, num_qubit
                     except Exception as e:
                         print(f"Warning: Could not save circuit image: {e}")
     
-    # 2. Run RL optimization if available
+    # 2. Run ConsolidatedToffoliDepthOptimizer with different strategies
+    if available_modules.get("consolidated_optimizer", False):
+        print("\n=== Running ConsolidatedToffoliDepthOptimizer with Different Strategies ===")
+        
+        # Define strategies to test
+        strategies = [
+            ("STANDARD", "Standard optimization balancing depth and fidelity"),
+            ("ULTRA_DEPTH_REDUCTION", "Aggressive depth reduction with controlled fidelity trade-offs"),
+            ("DEPTH_FIDELITY_BALANCE", "Explicit balancing of depth and fidelity"),
+            ("HYBRID", "Combined approach using multiple techniques")
+        ]
+        
+        for strategy_name, strategy_desc in strategies:
+            method_name = f"Consolidated_{strategy_name}"
+            all_results[method_name] = {}
+            
+            print(f"\nRunning ConsolidatedToffoliDepthOptimizer with strategy {strategy_name}:")
+            print(f"  {strategy_desc}")
+            
+            for fidelity in target_fidelities:
+                print(f"\n  Target fidelity {fidelity}:")
+                
+                result = optimize_with_consolidated(
+                    logical_circuit,
+                    coupling_map,
+                    fidelity,
+                    strategy_name,
+                    debug
+                )
+                
+                if result:
+                    result["target_fidelity"] = fidelity
+                    all_results[method_name][fidelity] = result
+                    
+                    print(f"    Original depth: {result['original_depth']}")
+                    print(f"    Optimized depth: {result['optimized_depth']}")
+                    print(f"    Depth reduction: {result['depth_reduction']:.2f}%")
+                    print(f"    Runtime: {result['runtime']:.2f} seconds")
+                    
+                    # Save the optimized circuit
+                    method_dir = os.path.join(output_dir, f"{method_name}_f{fidelity}")
+                    os.makedirs(method_dir, exist_ok=True)
+                    
+                    save_circuit_to_qasm(
+                        result["circuit"],
+                        os.path.join(method_dir, "optimized_circuit.qasm")
+                    )
+                    
+                    if available_modules.get("visualization", False):
+                        try:
+                            save_circuit_image(
+                                result["circuit"],
+                                "optimized_circuit",
+                                output_dir=method_dir,
+                                use_text_mode=True
+                            )
+                        except Exception as e:
+                            print(f"Warning: Could not save circuit image: {e}")
+    
+    # 3. Run RL optimization if available
     if available_modules.get("rl_optimizer", False):
         print("\n=== Running RL Optimization ===")
         all_results["RL_Optimizer"] = {}
@@ -496,7 +691,7 @@ def run_optimization_sweep(toffoli_gates, output_qubits, input_qubits, num_qubit
                     except Exception as e:
                         print(f"Warning: Could not save circuit image: {e}")
     
-    # 3. Run ZX optimization if available
+    # 4. Run ZX optimization if available
     if available_modules.get("zx_optimizer", False):
         print("\n=== Running ZX Optimization ===")
         all_results["ZX_Optimizer"] = {}

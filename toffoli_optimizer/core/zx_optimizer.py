@@ -8,10 +8,11 @@ allowing for better depth reduction with controlled fidelity trade-offs.
 import os
 import time
 import numpy as np
+import traceback
 import gc
 from typing import Dict, List, Tuple, Optional, Union, Any
 
-# Try to import PyZX - this library implements ZX-calculus functionality
+# Check for PyZX availability
 try:
     import pyzx as zx
     PYZX_AVAILABLE = True
@@ -19,41 +20,28 @@ except ImportError:
     PYZX_AVAILABLE = False
     print("Warning: PyZX library not available. ZX-calculus optimization will be limited.")
 
-# Import Qiskit with version compatibility
+# Import Qiskit with version compatibility checks
 try:
-    from qiskit import QuantumCircuit
+    from qiskit import QuantumCircuit, transpile
     from qiskit.circuit import Instruction, Parameter
+    
     # Check if this is Qiskit 2.0+
     try:
         from qiskit.transpiler import PassManager
         from qiskit.transpiler.passes import Unroller, Optimize1qGates
+        from qiskit.qasm2 import dumps, loads
         QISKIT_2_AVAILABLE = True
     except ImportError:
         # Older Qiskit imports
         from qiskit.transpiler import PassManager
         from qiskit.transpiler.passes import Unroller, Optimize1qGates
         QISKIT_2_AVAILABLE = False
+    
     QISKIT_AVAILABLE = True
 except ImportError:
     QISKIT_AVAILABLE = False
     QISKIT_2_AVAILABLE = False
-
-# Import from parent module if available
-try:
-    from ..utils.circuit_utils import validate_physical_circuit, estimate_fidelity
-except ImportError:
-    # Direct imports for standalone usage
-    try:
-        from toffoli_optimizer.utils.circuit_utils import validate_physical_circuit, estimate_fidelity
-    except ImportError:
-        # Define fallback functions if imports fail
-        def validate_physical_circuit(circuit, coupling_map):
-            """Fallback validation function"""
-            return True, []
-            
-        def estimate_fidelity(circuit=None, num_qubits=None, num_operations=None):
-            """Fallback fidelity estimation"""
-            return 0.9
+    print("Warning: Qiskit not available. Circuit optimization will be limited.")
 
 class ZXOptimizer:
     """
@@ -61,11 +49,11 @@ class ZXOptimizer:
     fidelity trade-offs to achieve better depth reduction.
     """
     
-    def __init__(self, aggressive_mode: bool = False, 
-                 t_count_weight: float = 0.3, 
-                 cx_count_weight: float = 0.3,
-                 target_fidelity: float = 0.85,
-                 debug_mode: bool = False):
+    def __init__(self, aggressive_mode=False,
+                 t_count_weight=0.3,
+                 cx_count_weight=0.3,
+                 target_fidelity=0.85,
+                 debug_mode=False):
         """
         Initialize the ZX-calculus optimizer.
         
@@ -83,65 +71,50 @@ class ZXOptimizer:
         self.target_fidelity = target_fidelity
         self.debug_mode = debug_mode
         
-        # Set up PyZX if available
-        self._check_pyzx_availability()
-    
-    def _check_pyzx_availability(self) -> bool:
-        """Check if PyZX is available and properly configured."""
-        if not PYZX_AVAILABLE:
-            if self.debug_mode:
-                print("PyZX library not available. Some optimization techniques will be disabled.")
-            return False
+        # Check if PyZX is available
+        self.pyzx_available = PYZX_AVAILABLE
         
-        # Test PyZX functionality
-        try:
-            # Create a simple graph
-            g = zx.Graph()
-            # Add some vertices
-            v1 = g.add_vertex(zx.VertexType.Z, 0, 0)
-            v2 = g.add_vertex(zx.VertexType.X, 0, 1)
-            # Add an edge
-            g.add_edge((v1, v2))
-            return True
-        except Exception as e:
-            if self.debug_mode:
-                print(f"PyZX initialization error: {e}")
-            return False
-    
-    def qiskit_to_zx(self, circuit: QuantumCircuit) -> Any:
+        if self.debug_mode:
+            print(f"ZXOptimizer initialized with:")
+            print(f"  Aggressive mode: {self.aggressive_mode}")
+            print(f"  Target fidelity: {self.target_fidelity}")
+            print(f"  PyZX available: {self.pyzx_available}")
+            
+    def circuit_to_zx(self, circuit):
         """
         Convert a Qiskit circuit to a ZX-diagram.
         
         Args:
-            circuit: Qiskit QuantumCircuit to convert
+            circuit: Qiskit circuit to convert
             
         Returns:
-            zx.Graph: ZX-diagram representation, or None if conversion fails
+            zx.Graph: ZX-diagram or None if conversion fails
         """
-        if not PYZX_AVAILABLE:
+        if not self.pyzx_available or circuit is None:
             return None
             
         try:
-            # Convert Qiskit circuit to QASM string
+            # Convert circuit to QASM
             if QISKIT_2_AVAILABLE:
-                from qiskit.qasm2 import dumps
                 qasm_str = dumps(circuit)
             else:
                 qasm_str = circuit.qasm()
-            
-            # Parse QASM string to ZX-diagram
-            zx_graph = zx.Circuit.from_qasm(qasm_str).to_graph()
+                
+            # Parse QASM to create ZX graph
+            zx_circuit = zx.Circuit.from_qasm(qasm_str)
+            zx_graph = zx_circuit.to_graph()
             
             if self.debug_mode:
                 print(f"Converted circuit to ZX-diagram with {len(zx_graph.vertices())} vertices")
-            
+                
             return zx_graph
         except Exception as e:
             if self.debug_mode:
                 print(f"Error converting circuit to ZX-diagram: {e}")
+                traceback.print_exc()
             return None
-    
-    def zx_to_qiskit(self, zx_graph: Any) -> QuantumCircuit:
+            
+    def zx_to_circuit(self, zx_graph):
         """
         Convert a ZX-diagram back to a Qiskit circuit.
         
@@ -149,36 +122,35 @@ class ZXOptimizer:
             zx_graph: ZX-diagram to convert
             
         Returns:
-            QuantumCircuit: Converted Qiskit circuit, or None if conversion fails
+            QuantumCircuit: Converted circuit or None if conversion fails
         """
-        if not PYZX_AVAILABLE or zx_graph is None:
+        if not self.pyzx_available or zx_graph is None:
             return None
             
         try:
-            # Extract circuit from ZX-diagram
+            # Extract circuit from ZX graph
             zx_circuit = zx.extract_circuit(zx_graph)
             
             # Convert to QASM
             qasm_str = zx_circuit.to_qasm()
             
-            # Parse QASM string to Qiskit circuit
+            # Parse QASM back to Qiskit circuit
             if QISKIT_2_AVAILABLE:
-                from qiskit.qasm2 import loads
                 circuit = loads(qasm_str)
             else:
-                from qiskit import QuantumCircuit
                 circuit = QuantumCircuit.from_qasm_str(qasm_str)
-            
+                
             if self.debug_mode:
                 print(f"Converted ZX-diagram back to circuit with depth {circuit.depth()}")
-            
+                
             return circuit
         except Exception as e:
             if self.debug_mode:
                 print(f"Error converting ZX-diagram to circuit: {e}")
+                traceback.print_exc()
             return None
     
-    def optimize_with_zx(self, circuit: QuantumCircuit) -> QuantumCircuit:
+    def optimize_with_zx(self, circuit):
         """
         Optimize a quantum circuit using ZX-calculus techniques.
         
@@ -186,64 +158,77 @@ class ZXOptimizer:
             circuit: Quantum circuit to optimize
             
         Returns:
-            QuantumCircuit: Optimized circuit or original if optimization fails
+            QuantumCircuit: Optimized circuit or original circuit if optimization fails
         """
-        if not PYZX_AVAILABLE:
+        if not self.pyzx_available or circuit is None:
             return self._fallback_optimize(circuit)
             
         try:
-            # Convert to ZX-diagram
-            zx_graph = self.qiskit_to_zx(circuit)
+            # Convert circuit to ZX diagram
+            zx_graph = self.circuit_to_zx(circuit)
             if zx_graph is None:
                 return self._fallback_optimize(circuit)
             
-            # Track original metrics
+            # Record original metrics
             original_depth = circuit.depth()
             original_size = len(circuit.data)
             
-            # Full optimization pipeline
+            # Apply optimization based on aggressiveness setting
             if self.aggressive_mode:
                 # Apply full optimization pipeline in aggressive mode
+                if self.debug_mode:
+                    print("Applying aggressive ZX optimization")
                 zx.full_reduce(zx_graph, quiet=not self.debug_mode)
             else:
-                # Apply a more conservative optimization
-                zx.teleport_reduce(zx_graph)
+                # Apply a more balanced optimization
+                if self.debug_mode:
+                    print("Applying standard ZX optimization")
                 zx.clifford_simp(zx_graph, quiet=not self.debug_mode)
-                
-            # Additional T-gate optimization
-            zx.tcount(zx_graph)  # Calculate T-count
-            zx.to_gh(zx_graph)   # Convert to graph-like form
+            
+            # Phase gadget optimization (good for T-count reduction)
+            zx.to_gh(zx_graph)
             if self.aggressive_mode:
-                # More aggressive T-count reduction
                 zx.phase_teleport(zx_graph)
-                zx.gadgetize(zx_graph) 
             zx.simplify.phase_gadget_simp(zx_graph)
             
-            # Convert back to standard form
-            zx.extract_circuit(zx_graph)
+            # Extract optimized circuit
+            optimized_circuit = self.zx_to_circuit(zx_graph)
             
-            # Convert back to Qiskit circuit
-            optimized_circuit = self.zx_to_qiskit(zx_graph)
-            
-            if optimized_circuit is None or optimized_circuit.depth() >= original_depth:
-                # If optimization failed or didn't reduce depth, use fallback
+            # Verify the optimization was successful
+            if optimized_circuit is None:
+                if self.debug_mode:
+                    print("ZX extraction failed, using fallback optimization")
                 return self._fallback_optimize(circuit)
+                
+            # Perform a light clean-up optimization
+            optimized_circuit = transpile(optimized_circuit, optimization_level=1)
             
+            # Log the results
             if self.debug_mode:
-                print(f"ZX optimization: Depth {original_depth} -> {optimized_circuit.depth()} "
-                     f"({(1 - optimized_circuit.depth() / original_depth) * 100:.2f}% reduction)")
+                new_depth = optimized_circuit.depth()
+                new_size = len(optimized_circuit.data)
+                depth_reduction = (original_depth - new_depth) / original_depth * 100 if original_depth > 0 else 0
+                print(f"ZX optimization complete:")
+                print(f"  Original depth: {original_depth} -> New depth: {new_depth}")
+                print(f"  Depth reduction: {depth_reduction:.2f}%")
+                print(f"  Gates: {original_size} -> {new_size}")
             
-            # Return optimized circuit
+            # Force garbage collection to free memory
+            gc.collect()
+            
             return optimized_circuit
             
         except Exception as e:
             if self.debug_mode:
-                print(f"Error in ZX-calculus optimization: {e}")
+                print(f"Error during ZX optimization: {e}")
+                traceback.print_exc()
+            
+            # Fallback to standard transpiler optimization
             return self._fallback_optimize(circuit)
-    
-    def _fallback_optimize(self, circuit: QuantumCircuit) -> QuantumCircuit:
+            
+    def _fallback_optimize(self, circuit):
         """
-        Fallback optimization method when ZX-calculus is not available.
+        Fallback optimization method when ZX-calculus is not available or fails.
         
         Args:
             circuit: Quantum circuit to optimize
@@ -251,106 +236,56 @@ class ZXOptimizer:
         Returns:
             QuantumCircuit: Optimized circuit
         """
-        if not QISKIT_AVAILABLE:
+        if not QISKIT_AVAILABLE or circuit is None:
             return circuit
             
         try:
-            from qiskit import transpile
+            if self.debug_mode:
+                print("Using fallback optimization (Qiskit transpiler)")
+                
+            # Adjust optimization level based on aggressiveness
+            opt_level = 3 if self.aggressive_mode else 2
             
-            # Apply Qiskit's transpiler with custom settings
+            # Create optimization passes
+            from qiskit.transpiler import PassManager
+            from qiskit.transpiler.passes import Unroller, Optimize1qGates
+            
+            pass_manager = PassManager()
+            pass_manager.append(Unroller(['u', 'cx']))
+            pass_manager.append(Optimize1qGates())
+            
+            # Apply passes
+            optimized = pass_manager.run(circuit)
+            
+            # Final transpile to fully optimize
             optimized = transpile(
-                circuit,
-                basis_gates=['u', 'cx'],  # Standard universal gate set
-                optimization_level=3 if self.aggressive_mode else 2,
-                layout_method='sabre'  # Good for respecting connectivity
+                optimized,
+                basis_gates=['u', 'cx'],
+                optimization_level=opt_level
             )
             
             if self.debug_mode:
-                print(f"Fallback optimization: Depth {circuit.depth()} -> {optimized.depth()} "
-                     f"({(1 - optimized.depth() / circuit.depth()) * 100:.2f}% reduction)")
-            
-            return optimized
-        except Exception as e:
-            if self.debug_mode:
-                print(f"Error in fallback optimization: {e}")
-            return circuit
-    
-    def approximate_toffoli(self, circuit: QuantumCircuit, approximation_level: float = 0.8) -> QuantumCircuit:
-        """
-        Apply Toffoli approximations to reduce depth at the expense of fidelity.
-        
-        Args:
-            circuit: Quantum circuit to optimize
-            approximation_level: Level of approximation (0.0-1.0, higher means more aggressive)
-            
-        Returns:
-            QuantumCircuit: Circuit with approximated Toffoli gates
-        """
-        if not QISKIT_AVAILABLE:
-            return circuit
-            
-        try:
-            # Create a new circuit with the same number of qubits and classical bits
-            optimized = QuantumCircuit(circuit.num_qubits, circuit.num_clbits)
-            
-            # Track which Toffoli gates to approximate
-            toffoli_indices = []
-            
-            # Identify Toffoli gates
-            for i, inst in enumerate(circuit.data):
-                if inst.operation.name.lower() in ['ccx', 'toffoli']:
-                    toffoli_indices.append(i)
-            
-            # Determine how many Toffoli gates to approximate
-            num_to_approximate = int(len(toffoli_indices) * approximation_level)
-            gates_to_approximate = toffoli_indices[:num_to_approximate]
-            
-            if self.debug_mode:
-                print(f"Approximating {num_to_approximate} of {len(toffoli_indices)} Toffoli gates")
-            
-            # Process each instruction
-            for i, inst in enumerate(circuit.data):
-                operation = inst.operation
-                qubits = [q.index if hasattr(q, 'index') else q._index for q in inst.qubits]
-                clbits = [c.index if hasattr(c, 'index') else c._index for c in inst.clbits] if hasattr(inst, 'clbits') else []
-                
-                if i in gates_to_approximate and operation.name.lower() in ['ccx', 'toffoli']:
-                    # Apply approximate Toffoli implementation
-                    self._add_approximate_toffoli(optimized, qubits[0], qubits[1], qubits[2])
-                else:
-                    # Add the original gate
-                    optimized.append(operation, qubits, clbits)
+                depth_reduction = (circuit.depth() - optimized.depth()) / circuit.depth() * 100 if circuit.depth() > 0 else 0
+                print(f"Fallback optimization complete:")
+                print(f"  Original depth: {circuit.depth()} -> New depth: {optimized.depth()}")
+                print(f"  Depth reduction: {depth_reduction:.2f}%")
             
             return optimized
             
         except Exception as e:
             if self.debug_mode:
-                print(f"Error approximating Toffoli gates: {e}")
+                print(f"Error during fallback optimization: {e}")
+                traceback.print_exc()
+            
+            # Return original circuit if optimization fails
             return circuit
     
-    def _add_approximate_toffoli(self, circuit: QuantumCircuit, control1: int, control2: int, target: int) -> None:
+    def optimize_circuit(self, circuit, coupling_map=None):
         """
-        Add an approximate Toffoli gate to the circuit.
+        Optimize a quantum circuit using the best available methods.
         
-        This implements a lower-fidelity but shallower Toffoli gate.
-        
-        Args:
-            circuit: Circuit to add the approximate Toffoli to
-            control1: First control qubit
-            control2: Second control qubit
-            target: Target qubit
-        """
-        # Approximate implementation (fewer gates, lower fidelity)
-        # Based on reduced-depth approximate CCX
-        circuit.h(target)
-        circuit.cx(control1, target)
-        circuit.h(target)
-        circuit.cx(control2, target)
-        circuit.h(target)
-    
-    def optimize_circuit(self, circuit: QuantumCircuit, coupling_map: Optional[List] = None) -> QuantumCircuit:
-        """
-        Fully optimize a circuit with combined techniques for maximum depth reduction.
+        This method combines ZX-calculus optimization with hardware mapping
+        to produce a circuit optimized for both depth and connectivity constraints.
         
         Args:
             circuit: Quantum circuit to optimize
@@ -361,90 +296,253 @@ class ZXOptimizer:
         """
         if circuit is None:
             return None
-        
-        # Make a working copy of the input circuit
-        working_circuit = circuit.copy()
-        
-        # Force garbage collection
-        gc.collect()
-        
-        # Apply ZX-calculus optimization first (if available)
-        zx_optimized = self.optimize_with_zx(working_circuit)
-        
-        # Force garbage collection
-        del working_circuit
-        gc.collect()
-        
-        # Apply Toffoli approximations for deeper reduction
-        approx_level = 0.7 if self.aggressive_mode else 0.4
-        optimized = self.approximate_toffoli(zx_optimized, approx_level)
-        
-        # Force garbage collection
-        del zx_optimized
-        gc.collect()
-        
-        # Apply final pass of Qiskit transpilation to respect coupling map
-        if QISKIT_AVAILABLE and coupling_map is not None:
-            from qiskit import transpile
             
-            final_optimized = transpile(
-                optimized,
-                coupling_map=coupling_map,
-                basis_gates=['u', 'cx'],
-                optimization_level=3
-            )
+        if self.debug_mode:
+            print(f"Optimizing circuit with depth {circuit.depth()}, gate count {len(circuit.data)}")
+            print(f"Target fidelity: {self.target_fidelity}")
+            print(f"Coupling map provided: {coupling_map is not None}")
+        
+        # First optimize the circuit structure using ZX-calculus
+        optimized_circuit = self.optimize_with_zx(circuit)
+        
+        # If we're being aggressive, try approximate Toffoli gates
+        if self.aggressive_mode and hasattr(optimized_circuit, 'depth') and optimized_circuit.depth() > 10:
+            approximation_level = 0.7 if self.target_fidelity < 0.9 else 0.4
+            if self.debug_mode:
+                print(f"Applying approximate Toffoli gates (level {approximation_level})")
+            approximated_circuit = self.approximate_toffoli(optimized_circuit, approximation_level)
             
-            # Force garbage collection
-            del optimized
-            gc.collect()
+            # Only use approximation if it actually reduces depth
+            if approximated_circuit.depth() < optimized_circuit.depth():
+                optimized_circuit = approximated_circuit
+                if self.debug_mode:
+                    print(f"Approximation reduced depth to {optimized_circuit.depth()}")
+        
+        # Map to hardware if coupling map is provided
+        if coupling_map is not None:
+            mapped_circuit = self.map_to_hardware(optimized_circuit, coupling_map)
             
-            return final_optimized
+            if self.debug_mode:
+                print(f"Hardware mapping: depth {optimized_circuit.depth()} -> {mapped_circuit.depth()}")
+            
+            # If mapping significantly increased depth, try a different approach
+            if mapped_circuit.depth() > optimized_circuit.depth() * 1.5:
+                if self.debug_mode:
+                    print("Mapping significantly increased depth, trying alternative mapping")
+                
+                # Try direct transpilation with a different strategy
+                alt_mapped = transpile(
+                    optimized_circuit,
+                    coupling_map=coupling_map,
+                    layout_method='sabre',
+                    routing_method='stochastic',
+                    optimization_level=3
+                )
+                
+                # Use the better result
+                if alt_mapped.depth() < mapped_circuit.depth():
+                    mapped_circuit = alt_mapped
+                    if self.debug_mode:
+                        print(f"Alternative mapping found better result: depth {mapped_circuit.depth()}")
+            
+            # Use the mapped circuit
+            final_circuit = mapped_circuit
         else:
-            return optimized
+            # No coupling constraints - just clean up the circuit
+            final_circuit = transpile(optimized_circuit, optimization_level=1)
+        
+        # Log final metrics
+        if self.debug_mode:
+            original_depth = circuit.depth()
+            final_depth = final_circuit.depth()
+            depth_reduction = (original_depth - final_depth) / original_depth * 100 if original_depth > 0 else 0
+            print(f"Optimization complete:")
+            print(f"  Original depth: {original_depth} -> Final depth: {final_depth}")
+            print(f"  Depth reduction: {depth_reduction:.2f}%")
+            print(f"  Original gates: {len(circuit.data)} -> Final gates: {len(final_circuit.data)}")
+        
+        # Force garbage collection to free memory
+        gc.collect()
+        
+        return final_circuit
     
-    def estimate_fidelity_reduction(self, original_circuit: QuantumCircuit, 
-                                  optimized_circuit: QuantumCircuit) -> float:
+    def map_to_hardware(self, circuit, coupling_map):
         """
-        Estimate how much fidelity was sacrificed in the optimization.
+        Map a circuit to hardware respecting coupling constraints.
         
         Args:
-            original_circuit: Original circuit
-            optimized_circuit: Optimized circuit
+            circuit: Circuit to map
+            coupling_map: Coupling map constraints
             
         Returns:
-            float: Estimated fidelity reduction (0.0-1.0, higher means more fidelity loss)
+            QuantumCircuit: Hardware-mapped circuit
         """
-        if original_circuit is None or optimized_circuit is None:
-            return 0.0
+        if not QISKIT_AVAILABLE or circuit is None:
+            return circuit
             
-        # Count operations in both circuits
-        orig_ops = original_circuit.count_ops() if hasattr(original_circuit, 'count_ops') else {}
-        opt_ops = optimized_circuit.count_ops() if hasattr(optimized_circuit, 'count_ops') else {}
+        try:
+            if self.debug_mode:
+                print("Mapping circuit to hardware...")
+                
+            # Use different layout methods depending on circuit size
+            if circuit.num_qubits < 10:
+                layout_method = 'dense'
+            else:
+                layout_method = 'sabre'
+                
+            # Perform the mapping
+            mapped_circuit = transpile(
+                circuit,
+                coupling_map=coupling_map,
+                layout_method=layout_method,
+                routing_method='sabre',
+                optimization_level=1  # Light optimization to preserve ZX benefits
+            )
+            
+            return mapped_circuit
+            
+        except Exception as e:
+            if self.debug_mode:
+                print(f"Error mapping to hardware: {e}")
+                
+            # Try a simpler approach
+            try:
+                return transpile(
+                    circuit,
+                    coupling_map=coupling_map,
+                    optimization_level=1
+                )
+            except:
+                # If all else fails, return the original circuit
+                return circuit
+    
+    def estimate_fidelity(self, circuit):
+        """
+        Estimate the fidelity of a quantum circuit.
         
-        # Track operation differences that affect fidelity
-        orig_ccx = orig_ops.get('ccx', 0)
-        opt_ccx = opt_ops.get('ccx', 0)
+        Args:
+            circuit: Quantum circuit to estimate fidelity for
+            
+        Returns:
+            float: Estimated fidelity (0.0-1.0)
+        """
+        if not QISKIT_AVAILABLE or circuit is None:
+            return 0.9  # Default value
+            
+        try:
+            # Count gates
+            gate_counts = circuit.count_ops()
+            
+            # Extract specific gate counts
+            cx_count = gate_counts.get('cx', 0)
+            t_count = gate_counts.get('t', 0) + gate_counts.get('tdg', 0)
+            single_qubit_gates = sum(gate_counts.get(g, 0) for g in
+                                    ['h', 'x', 'y', 'z', 's', 'sdg', 'u1', 'u2', 'u3', 'rx', 'ry', 'rz'])
+            
+            # Gate error rates
+            cx_error = 0.01  # 1% error per CNOT gate
+            t_error = 0.002  # 0.2% error per T gate
+            single_error = 0.0001  # 0.01% error per single-qubit gate
+            
+            # Compute total fidelity
+            fidelity = (1 - cx_error) ** cx_count * \
+                       (1 - t_error) ** t_count * \
+                       (1 - single_error) ** single_qubit_gates
+            
+            # Account for depth effects
+            depth = circuit.depth()
+            num_qubits = circuit.num_qubits
+            
+            # Simple decoherence model
+            depth_factor = max(0.9, 1.0 - (0.001 * depth * np.log(1 + num_qubits)))
+            fidelity *= depth_factor
+            
+            # Ensure fidelity is in valid range
+            fidelity = max(0.0, min(1.0, fidelity))
+            
+            return fidelity
+            
+        except Exception as e:
+            if self.debug_mode:
+                print(f"Error estimating fidelity: {e}")
+            
+            # Default fallback value
+            return 0.9
+    
+    def approximate_toffoli(self, circuit, approximation_level=0.5):
+        """
+        Apply Toffoli approximations to reduce depth at the expense of fidelity.
         
-        # Approximate Toffoli gates have 5 operations in our implementation
-        approx_toffoli_count = 0
-        if orig_ccx > opt_ccx:
-            approx_toffoli_count = orig_ccx - opt_ccx
+        Args:
+            circuit: Circuit to optimize
+            approximation_level: Level of approximation (0.0-1.0, higher is more aggressive)
+            
+        Returns:
+            QuantumCircuit: Circuit with approximated Toffoli gates
+        """
+        if not QISKIT_AVAILABLE or circuit is None:
+            return circuit
+            
+        try:
+            # Create a new circuit with the same structure
+            result = QuantumCircuit(circuit.num_qubits, circuit.num_clbits)
+            
+            # Count total Toffoli gates
+            toffoli_count = 0
+            for inst in circuit.data:
+                if inst.operation.name == 'ccx' or inst.operation.name == 'mcx':
+                    toffoli_count += 1
+            
+            # Determine how many Toffoli gates to approximate
+            num_to_approximate = int(toffoli_count * approximation_level)
+            approximated = 0
+            
+            # Process each gate
+            for inst in circuit.data:
+                if inst.operation.name == 'ccx' and approximated < num_to_approximate:
+                    # Get qubits
+                    qubits = [q.index for q in inst.qubits]
+                    control1, control2, target = qubits
+                    
+                    # Use an approximate implementation
+                    self._add_approximate_toffoli(result, control1, control2, target)
+                    approximated += 1
+                else:
+                    # Keep the original gate
+                    result.append(inst.operation, inst.qubits, inst.clbits if hasattr(inst, 'clbits') else [])
+            
+            if self.debug_mode:
+                print(f"Approximated {approximated} of {toffoli_count} Toffoli gates")
+                print(f"Depth before: {circuit.depth()}, after: {result.depth()}")
+            
+            return result
+            
+        except Exception as e:
+            if self.debug_mode:
+                print(f"Error approximating Toffoli gates: {e}")
+                traceback.print_exc()
+            
+            # Return original circuit if approximation fails
+            return circuit
+            
+    def _add_approximate_toffoli(self, circuit, control1, control2, target):
+        """
+        Add an approximate Toffoli gate implementation to a circuit.
         
-        # Estimate original fidelity
-        orig_fidelity = estimate_fidelity(
-            circuit=original_circuit
-        )
-        
-        # Estimate optimized fidelity (adjusted for approximations)
-        opt_fidelity = estimate_fidelity(
-            circuit=optimized_circuit
-        )
-        
-        # Apply penalty for approximate Toffoli gates
-        fidelity_penalty = 0.02 * approx_toffoli_count  # Each approximate Toffoli costs ~2% fidelity
-        opt_fidelity = max(0.0, opt_fidelity - fidelity_penalty)
-        
-        # Calculate fidelity reduction
-        fidelity_reduction = 1.0 - (opt_fidelity / orig_fidelity) if orig_fidelity > 0 else 0.0
-        
-        return fidelity_reduction
+        Args:
+            circuit: Circuit to add the gate to
+            control1: First control qubit
+            control2: Second control qubit
+            target: Target qubit
+        """
+        # Implement a lower-depth, lower-fidelity Toffoli gate
+        circuit.h(target)
+        circuit.cx(control1, target)
+        circuit.tdg(target)
+        circuit.cx(control2, target)
+        circuit.t(target)
+        circuit.cx(control1, target)
+        circuit.tdg(target)
+        circuit.cx(control2, target)
+        circuit.t(target)
+        circuit.h(target)

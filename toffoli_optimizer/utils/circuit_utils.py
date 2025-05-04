@@ -658,3 +658,342 @@ class CircuitGateProcessor:
             print(f"Circuit processing summary: {skipped_gates} gates skipped, {modified_gates} gates modified out of {total_gates} total gates")
         
         return fixed_circuit
+
+"""
+Additional Circuit Utility Functions
+
+This module provides additional utility functions for working with quantum circuits,
+including random circuit generation and analysis tools.
+"""
+
+import random
+import numpy as np
+
+# Try to import Qiskit
+try:
+    from qiskit import QuantumCircuit
+    QISKIT_AVAILABLE = True
+except ImportError:
+    QISKIT_AVAILABLE = False
+
+def generate_random_toffoli_network(num_gates=5, target_logical_depth=3, num_qubits=8, seed=None):
+    """
+    Generate a random Toffoli network for benchmarking.
+    
+    Args:
+        num_gates (int): Number of Toffoli gates to generate
+        target_logical_depth (int): Target logical depth (influences gate dependencies)
+        num_qubits (int): Total number of qubits to use
+        seed (int): Random seed for reproducibility
+        
+    Returns:
+        tuple: (toffoli_gates, output_qubits, input_qubits, num_qubits)
+            - toffoli_gates: List of (controls, target) tuples
+            - output_qubits: List of output qubit indices
+            - input_qubits: List of input qubit indices
+            - num_qubits: Number of qubits
+    """
+    # Set random seed if provided
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+    
+    # Generate random Toffoli gates with some structure
+    toffoli_gates = []
+    used_qubits = set()
+    
+    # First, generate some "input" gates that start the computation
+    num_input_gates = min(3, num_gates)
+    for i in range(num_input_gates):
+        # For input gates, pick random controls and target
+        controls = random.sample(range(num_qubits), 2)
+        # Target should be different from controls
+        available_targets = [q for q in range(num_qubits) if q not in controls]
+        if not available_targets:
+            # If no available targets, skip this gate
+            continue
+        target = random.choice(available_targets)
+        
+        toffoli_gates.append((controls, target))
+        used_qubits.update(controls)
+        used_qubits.add(target)
+    
+    # Then, generate gates that depend on previous gates for target_logical_depth
+    for i in range(num_input_gates, num_gates):
+        if not toffoli_gates:
+            # If we don't have any gates yet, generate a random one
+            controls = random.sample(range(num_qubits), 2)
+            available_targets = [q for q in range(num_qubits) if q not in controls]
+            if not available_targets:
+                continue
+            target = random.choice(available_targets)
+        else:
+            # Pick at least one qubit from a previous gate's output
+            prev_gates = toffoli_gates[-min(target_logical_depth, len(toffoli_gates)):]
+            prev_targets = [gate[1] for gate in prev_gates]
+            
+            # Choose one previous target as a control
+            if prev_targets and random.random() < 0.7:  # 70% chance to use a previous target
+                control1 = random.choice(prev_targets)
+            else:
+                control1 = random.randint(0, num_qubits - 1)
+            
+            # Pick a different qubit for the second control
+            available_controls = [q for q in range(num_qubits) if q != control1]
+            if not available_controls:
+                continue
+            control2 = random.choice(available_controls)
+            controls = [control1, control2]
+            
+            # Target should be different from controls
+            available_targets = [q for q in range(num_qubits) if q not in controls]
+            if not available_targets:
+                continue
+            target = random.choice(available_targets)
+        
+        toffoli_gates.append((controls, target))
+        used_qubits.update(controls)
+        used_qubits.add(target)
+    
+    # Determine input and output qubits
+    # Input qubits are those used as controls in the first few gates
+    input_qubit_candidates = set()
+    for i in range(min(3, len(toffoli_gates))):
+        if i < len(toffoli_gates):
+            input_qubit_candidates.update(toffoli_gates[i][0])
+    
+    # Add some random qubits if needed to ensure we have enough inputs
+    while len(input_qubit_candidates) < min(3, num_qubits):
+        new_input = random.randint(0, num_qubits - 1)
+        input_qubit_candidates.add(new_input)
+    
+    input_qubits = sorted(list(input_qubit_candidates))
+    
+    # Output qubits are targets from the last few gates
+    output_qubit_candidates = set()
+    for i in range(max(0, len(toffoli_gates) - 3), len(toffoli_gates)):
+        if i < len(toffoli_gates):
+            output_qubit_candidates.add(toffoli_gates[i][1])
+    
+    # Add some random qubits if needed to ensure we have enough outputs
+    while len(output_qubit_candidates) < min(3, num_qubits):
+        new_output = random.randint(0, num_qubits - 1)
+        output_qubit_candidates.add(new_output)
+    
+    output_qubits = sorted(list(output_qubit_candidates))
+    
+    return toffoli_gates, output_qubits, input_qubits, num_qubits
+
+def generate_benchmark_circuit(num_qubits=8, depth=5, connectivity='linear', seed=None):
+    """
+    Generate a quantum circuit suitable for benchmarking optimization algorithms.
+    
+    This function creates a circuit with a mix of gates that represent
+    realistic quantum algorithm components.
+    
+    Args:
+        num_qubits (int): Number of qubits in the circuit
+        depth (int): Approximate circuit depth (layers of gates)
+        connectivity (str): Connectivity model ('linear', 'grid', 'all')
+        seed (int): Random seed for reproducibility
+        
+    Returns:
+        QuantumCircuit: Generated benchmark circuit
+    """
+    if not QISKIT_AVAILABLE:
+        raise ImportError("Qiskit is required to generate benchmark circuits")
+    
+    # Set random seed if provided
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+    
+    # Create a quantum circuit
+    circuit = QuantumCircuit(num_qubits)
+    
+    # Define allowed connections based on connectivity model
+    allowed_connections = []
+    if connectivity == 'linear':
+        for i in range(num_qubits - 1):
+            allowed_connections.append((i, i+1))
+    elif connectivity == 'grid':
+        grid_size = int(np.ceil(np.sqrt(num_qubits)))
+        for i in range(num_qubits):
+            row, col = i // grid_size, i % grid_size
+            if col < grid_size - 1 and i + 1 < num_qubits:
+                allowed_connections.append((i, i+1))
+            if row < grid_size - 1 and i + grid_size < num_qubits:
+                allowed_connections.append((i, i+grid_size))
+    else:  # 'all' or any other value
+        for i in range(num_qubits):
+            for j in range(i+1, num_qubits):
+                allowed_connections.append((i, j))
+    
+    # Define gate types and their probabilities
+    single_qubit_gates = ['h', 'x', 't', 'tdg', 's', 'sdg']
+    single_prob = 0.6
+    cx_prob = 0.3
+    ccx_prob = 0.1
+    
+    # Generate the circuit layer by layer
+    for _ in range(depth):
+        # Apply random gates to each qubit
+        used_qubits = set()
+        
+        # First apply two-qubit gates to respect connectivity
+        for _ in range(num_qubits // 2):
+            if not allowed_connections or random.random() > cx_prob + ccx_prob:
+                continue
+                
+            # Choose a random connection
+            i, j = random.choice(allowed_connections)
+            
+            # Skip if qubits already used in this layer
+            if i in used_qubits or j in used_qubits:
+                continue
+                
+            # Decide between CX and CCX
+            if random.random() < ccx_prob / (cx_prob + ccx_prob) and num_qubits >= 3:
+                # Add a CCX gate if possible
+                # Find a third qubit not in the connection
+                available = [q for q in range(num_qubits) if q != i and q != j and q not in used_qubits]
+                if available:
+                    k = random.choice(available)
+                    circuit.ccx(i, j, k)
+                    used_qubits.update([i, j, k])
+                else:
+                    # Fall back to CX if no third qubit available
+                    circuit.cx(i, j)
+                    used_qubits.update([i, j])
+            else:
+                # Add a CX gate
+                circuit.cx(i, j)
+                used_qubits.update([i, j])
+        
+        # Then apply single-qubit gates
+        for i in range(num_qubits):
+            if i in used_qubits or random.random() > single_prob:
+                continue
+                
+            # Choose a random single-qubit gate
+            gate = random.choice(single_qubit_gates)
+            
+            if gate == 'h':
+                circuit.h(i)
+            elif gate == 'x':
+                circuit.x(i)
+            elif gate == 't':
+                circuit.t(i)
+            elif gate == 'tdg':
+                circuit.tdg(i)
+            elif gate == 's':
+                circuit.s(i)
+            elif gate == 'sdg':
+                circuit.sdg(i)
+                
+            used_qubits.add(i)
+    
+    # Add some random measurements at the end
+    measure_qubits = random.sample(range(num_qubits), min(3, num_qubits))
+    circuit.measure_all()
+    
+    return circuit
+
+def analyze_toffoli_network_structure(toffoli_gates):
+    """
+    Analyze the structure of a Toffoli network to identify patterns and dependencies.
+    
+    Args:
+        toffoli_gates: List of (controls, target) tuples
+        
+    Returns:
+        dict: Analysis results with metrics about the network
+    """
+    if not toffoli_gates:
+        return {
+            "num_gates": 0,
+            "depth": 0,
+            "parallelism": 0,
+            "input_size": 0,
+            "output_size": 0,
+            "intermediate_size": 0
+        }
+    
+    # Track qubit dependencies
+    qubit_dependencies = {}
+    gate_layers = []
+    current_layer = []
+    available_qubits = set()
+    
+    # First pass: identify input qubits (controls of first gates)
+    input_qubits = set()
+    for controls, _ in toffoli_gates:
+        for control in controls:
+            input_qubits.add(control)
+    
+    # Start with input qubits as available
+    available_qubits = input_qubits.copy()
+    
+    # Second pass: build layers based on dependencies
+    remaining_gates = list(toffoli_gates)
+    
+    while remaining_gates:
+        # Try to find gates that can be executed with available qubits
+        executable_gates = []
+        for i, (controls, target) in enumerate(remaining_gates):
+            # Check if all controls are available
+            if all(control in available_qubits for control in controls):
+                executable_gates.append((i, controls, target))
+        
+        if executable_gates:
+            # Add gates to current layer
+            for i, controls, target in executable_gates:
+                current_layer.append(remaining_gates[i])
+                available_qubits.add(target)
+            
+            # Remove executed gates from remaining
+            remaining_gates = [g for i, g in enumerate(remaining_gates)
+                              if i not in [x[0] for x in executable_gates]]
+        else:
+            # If no gates can be executed, start a new layer
+            if current_layer:
+                gate_layers.append(current_layer)
+                current_layer = []
+            
+            # If still no gates can be executed, there's a dependency cycle
+            # Break it by making the target of the first remaining gate available
+            if not executable_gates and remaining_gates:
+                available_qubits.add(remaining_gates[0][1])
+    
+    # Add final layer if not empty
+    if current_layer:
+        gate_layers.append(current_layer)
+    
+    # Identify output qubits (targets of last layer)
+    output_qubits = set()
+    if gate_layers:
+        for _, target in gate_layers[-1]:
+            output_qubits.add(target)
+    
+    # Identify intermediate qubits (not input or output)
+    all_qubits = set()
+    for controls, target in toffoli_gates:
+        all_qubits.update(controls)
+        all_qubits.add(target)
+    
+    intermediate_qubits = all_qubits - input_qubits - output_qubits
+    
+    # Calculate metrics
+    max_gates_per_layer = max(len(layer) for layer in gate_layers) if gate_layers else 0
+    avg_gates_per_layer = sum(len(layer) for layer in gate_layers) / len(gate_layers) if gate_layers else 0
+    
+    return {
+        "num_gates": len(toffoli_gates),
+        "depth": len(gate_layers),
+        "max_parallelism": max_gates_per_layer,
+        "avg_parallelism": avg_gates_per_layer,
+        "input_size": len(input_qubits),
+        "output_size": len(output_qubits),
+        "intermediate_size": len(intermediate_qubits),
+        "layers": gate_layers
+    }

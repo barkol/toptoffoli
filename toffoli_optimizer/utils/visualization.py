@@ -594,3 +594,588 @@ def visualize_optimization(circuit, report, filename='optimization_report'):
         
     except Exception as e:
         print(f"Error creating visualization: {e}")
+
+
+
+"""
+Memory-Optimized Visualization Utilities
+
+This module provides optimized visualization functions for quantum circuits
+with improved memory management for large circuits.
+"""
+
+import os
+import time
+import gc  # For garbage collection
+import traceback
+from datetime import datetime
+import numpy as np
+
+# Try to import Matplotlib with memory optimizations
+try:
+    import matplotlib
+    # Use the Agg backend for better memory management
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+    print("Warning: Matplotlib not available. Visualization will be limited to text output.")
+
+# Try to import Qiskit
+try:
+    from qiskit import QuantumCircuit
+    from qiskit.visualization import circuit_drawer
+    QISKIT_AVAILABLE = True
+except ImportError:
+    QISKIT_AVAILABLE = False
+    print("Warning: Qiskit not available. Visualization will be limited.")
+
+def memory_optimized_save_circuit_image(circuit, filename, output_dir="circuit_images",
+                                      max_qubits_for_image=20, dpi=72, format='png'):
+    """
+    Save a circuit visualization with optimized memory usage.
+    
+    For large circuits, this will automatically fall back to text representation
+    to avoid memory issues.
+    
+    Args:
+        circuit: Quantum circuit to visualize
+        filename: Base filename (without extension)
+        output_dir: Directory to save the image to
+        max_qubits_for_image: Maximum number of qubits for image rendering
+        dpi: DPI for image
+        format: Image format (png, pdf, svg, etc.)
+        
+    Returns:
+        str: Path to the saved file
+    """
+    if not QISKIT_AVAILABLE:
+        print("Warning: Qiskit not available. Cannot save circuit image.")
+        return None
+        
+    if circuit is None:
+        print(f"Warning: Cannot save circuit image for None circuit")
+        return None
+    
+    # Create the output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Generate a unique timestamp for the filename
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    
+    # Check if circuit is too large for image rendering
+    if circuit.num_qubits > max_qubits_for_image or len(circuit.data) > max_qubits_for_image * 10:
+        print(f"Circuit too large for image rendering (has {circuit.num_qubits} qubits, "
+              f"{len(circuit.data)} gates). Using text format.")
+        return save_circuit_text(circuit, filename, output_dir)
+    
+    if not MATPLOTLIB_AVAILABLE:
+        print("Matplotlib not available. Using text format.")
+        return save_circuit_text(circuit, filename, output_dir)
+    
+    # Create the output path
+    output_path = os.path.join(output_dir, f"{filename}_{timestamp}.{format}")
+    
+    try:
+        # Create a new figure with a fresh memory space
+        plt.figure(figsize=(12, min(8, 0.5 * circuit.num_qubits)))
+        
+        # Draw the circuit with memory optimizations
+        try:
+            # For smaller circuits, use mpl style
+            if circuit.num_qubits <= 10 and len(circuit.data) <= 50:
+                circuit_drawer(circuit, output='mpl', style={'name': 'iqx'})
+            else:
+                # For medium circuits, use a simpler style
+                circuit_drawer(circuit, output='mpl',
+                              style={'name': 'iqx', 'subfontsize': 8, 'compress': True})
+        except Exception as drawer_error:
+            print(f"Error with circuit_drawer: {drawer_error}")
+            # Fallback to very simple drawing
+            plt.text(0.5, 0.5, f"Circuit: {circuit.num_qubits} qubits, "
+                     f"{len(circuit.data)} gates, depth {circuit.depth()}",
+                     ha='center', va='center')
+        
+        # Save the figure with tight layout to minimize whitespace
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=dpi, bbox_inches='tight', format=format)
+        
+        # Close the figure immediately to free memory
+        plt.close('all')
+        
+        # Force garbage collection
+        gc.collect()
+        
+        print(f"Circuit image saved to {output_path}")
+        return output_path
+        
+    except Exception as e:
+        # Ensure all figures are closed even on error
+        plt.close('all')
+        print(f"Error saving circuit image: {e}")
+        traceback.print_exc()
+        
+        # Try text format as fallback
+        print("Falling back to text format")
+        return save_circuit_text(circuit, filename, output_dir)
+
+def save_circuit_text(circuit, filename, output_dir="circuit_text"):
+    """
+    Save a circuit as a text-only representation (most memory efficient).
+    
+    Args:
+        circuit: Quantum circuit to visualize
+        filename: Base filename (without extension)
+        output_dir: Directory to save the text file to
+        
+    Returns:
+        str: Path to the saved file
+    """
+    if not QISKIT_AVAILABLE:
+        print("Warning: Qiskit not available. Cannot save circuit text.")
+        return None
+        
+    if circuit is None:
+        print(f"Warning: Cannot save circuit text for None circuit")
+        return None
+    
+    # Create the output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Generate a unique timestamp for the filename
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    
+    # Save in text format (ASCII art)
+    output_path = os.path.join(output_dir, f"{filename}_{timestamp}.txt")
+    
+    # Check if circuit is very large
+    if circuit.num_qubits > 50 or len(circuit.data) > 500:
+        # For very large circuits, just save statistics instead of full text representation
+        try:
+            with open(output_path, 'w') as f:
+                f.write(f"Circuit Statistics for {filename}\n")
+                f.write(f"{'='*40}\n")
+                f.write(f"Number of qubits: {circuit.num_qubits}\n")
+                f.write(f"Circuit depth: {circuit.depth()}\n")
+                f.write(f"Total gates: {len(circuit.data)}\n")
+                
+                # Count gate types
+                gate_counts = {}
+                for inst in circuit.data:
+                    gate_name = inst.operation.name
+                    gate_counts[gate_name] = gate_counts.get(gate_name, 0) + 1
+                
+                f.write("\nGate counts:\n")
+                for gate, count in sorted(gate_counts.items()):
+                    f.write(f"  {gate}: {count}\n")
+                
+                # Show sample of gates (first 20)
+                f.write("\nSample of gates (first 20):\n")
+                for i, inst in enumerate(circuit.data[:20]):
+                    if i >= 20:
+                        break
+                    gate_name = inst.operation.name
+                    qubits = [q.index if hasattr(q, 'index') else q._index for q in inst.qubits]
+                    f.write(f"  {i}: {gate_name} on qubits {qubits}\n")
+                
+                if len(circuit.data) > 20:
+                    f.write(f"  ... and {len(circuit.data) - 20} more gates\n")
+            
+            print(f"Circuit statistics saved to {output_path}")
+            return output_path
+        except Exception as e:
+            print(f"Error saving circuit statistics: {e}")
+            return None
+    
+    try:
+        # Method 1: Use direct filename output (most memory efficient)
+        circuit_drawer(circuit, output='text', filename=output_path)
+        print(f"Circuit text representation saved to {output_path}")
+        
+        # Force garbage collection to free memory
+        gc.collect()
+            
+        return output_path
+        
+    except Exception as e:
+        print(f"Error with direct text saving: {e}")
+        # Try alternative method
+        try:
+            # Method 2: Get the text and write it manually, in chunks to manage memory
+            text_drawing = circuit_drawer(circuit, output='text', filename=None)
+            text_str = str(text_drawing)
+            
+            with open(output_path, 'w') as f:
+                # Write in small chunks to prevent memory issues with very large circuits
+                chunk_size = 10000  # Characters per chunk
+                for i in range(0, len(text_str), chunk_size):
+                    f.write(text_str[i:i+chunk_size])
+                    # Free memory after writing each chunk
+                    if i % (chunk_size * 10) == 0:
+                        gc.collect()
+                
+            print(f"Circuit text representation saved to {output_path} (alternative method)")
+            gc.collect()
+            return output_path
+            
+        except Exception as alt_e:
+            print(f"Alternative text saving also failed: {alt_e}")
+            return None
+
+def save_circuit_stats_no_matplotlib(circuit, filename, output_dir="circuit_stats"):
+    """
+    Save circuit statistics without any dependency on Matplotlib.
+    
+    This function is guaranteed to work even for very large circuits
+    with minimal memory usage.
+    
+    Args:
+        circuit: Quantum circuit to analyze
+        filename: Base filename (without extension)
+        output_dir: Directory to save the stats to
+        
+    Returns:
+        str: Path to the saved file
+    """
+    if not QISKIT_AVAILABLE:
+        print("Warning: Qiskit not available. Cannot save circuit stats.")
+        return None
+        
+    if circuit is None:
+        print(f"Warning: Cannot save circuit stats for None circuit")
+        return None
+    
+    # Create the output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Generate a unique timestamp for the filename
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    
+    # Create the output path
+    output_path = os.path.join(output_dir, f"{filename}_{timestamp}.txt")
+    
+    try:
+        # Count operations in a memory-efficient way
+        gate_counts = {}
+        for inst in circuit.data:
+            try:
+                gate_name = inst.operation.name
+                gate_counts[gate_name] = gate_counts.get(gate_name, 0) + 1
+            except:
+                # Skip if name attribute is not available
+                pass
+        
+        # Calculate circuit depth
+        try:
+            depth = circuit.depth()
+        except:
+            depth = "Unknown (calculation failed)"
+        
+        # Write the statistics to a file
+        with open(output_path, 'w') as f:
+            f.write(f"Circuit Statistics for {filename}\n")
+            f.write(f"{'='*40}\n")
+            f.write(f"Number of qubits: {circuit.num_qubits}\n")
+            f.write(f"Depth: {depth}\n")
+            f.write(f"Total gates: {len(circuit.data)}\n")
+            f.write(f"\nGate counts:\n")
+            for gate, count in sorted(gate_counts.items()):
+                f.write(f"  {gate}: {count}\n")
+            
+            # Include a sample of instructions for debugging
+            f.write(f"\nSample of instructions (first 20):\n")
+            for i, inst in enumerate(circuit.data[:20]):
+                try:
+                    gate_name = inst.operation.name
+                    qubits = [q.index if hasattr(q, 'index') else q._index for q in inst.qubits]
+                    f.write(f"  {i}: {gate_name} on qubits {qubits}\n")
+                except:
+                    f.write(f"  {i}: {inst} (error parsing details)\n")
+            
+            if len(circuit.data) > 20:
+                f.write(f"  ... and {len(circuit.data) - 20} more instructions\n")
+        
+        print(f"Circuit statistics saved to {output_path}")
+        
+        # Force garbage collection to free memory
+        gc.collect()
+            
+        return output_path
+        
+    except Exception as e:
+        print(f"Error saving circuit stats: {e}")
+        traceback.print_exc()
+        return None
+
+def memory_efficient_plot_comparison(results, output_file, max_memory_mb=500):
+    """
+    Create a comparison plot with explicit memory management.
+    
+    Args:
+        results: Dictionary with optimization results
+        output_file: Output file path for the plot
+        max_memory_mb: Maximum memory to use in MB
+        
+    Returns:
+        bool: Whether the plot was successfully created
+    """
+    if not MATPLOTLIB_AVAILABLE:
+        print("Warning: Matplotlib not available. Cannot create comparison plot.")
+        return False
+    
+    try:
+        # Ensure all previous figures are closed
+        plt.close('all')
+        
+        # Set a memory limit for the figure
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        if max_memory_mb > 0:
+            # Convert MB to bytes
+            max_memory = max_memory_mb * 1024 * 1024
+            resource.setrlimit(resource.RLIMIT_AS, (max_memory, hard))
+        
+        # Extract data for plotting
+        methods = []
+        original_depths = []
+        optimized_depths = []
+        depth_reductions = []
+        
+        # Prepare data in chunks to limit memory usage
+        for method, method_results in results.items():
+            # Extract results
+            method_name = str(method)
+            
+            # Get metrics safely, with defaults if keys are missing
+            original_depth = method_results.get("original_depth", 0)
+            optimized_depth = method_results.get("optimized_depth", 0)
+            depth_reduction = method_results.get("depth_reduction", 0)
+            
+            # Add to lists
+            methods.append(method_name)
+            original_depths.append(original_depth)
+            optimized_depths.append(optimized_depth)
+            depth_reductions.append(depth_reduction)
+            
+            # Free memory after processing each method
+            if len(methods) % 5 == 0:
+                gc.collect()
+        
+        # Create the figure
+        plt.figure(figsize=(10, 6))
+        
+        # Plot the depths
+        x = np.arange(len(methods))
+        width = 0.35
+        
+        ax = plt.subplot(1, 1, 1)
+        ax.bar(x - width/2, original_depths, width, label='Original Depth')
+        ax.bar(x + width/2, optimized_depths, width, label='Optimized Depth')
+        
+        ax.set_ylabel('Circuit Depth')
+        ax.set_title('Optimization Comparison')
+        ax.set_xticks(x)
+        ax.set_xticklabels(methods, rotation=45, ha='right')
+        ax.legend()
+        
+        # Save the figure
+        plt.tight_layout()
+        plt.savefig(output_file)
+        
+        # Close the figure and free memory
+        plt.close('all')
+        gc.collect()
+        
+        print(f"Comparison plot saved to {output_file}")
+        return True
+    
+    except Exception as e:
+        print(f"Error creating comparison plot: {e}")
+        traceback.print_exc()
+        
+        # Force close all figures on error
+        plt.close('all')
+        gc.collect()
+        
+        return False
+
+def save_benchmark_circuits_with_memory_management(benchmark_result, output_dir="benchmark_circuits",
+                                                 max_qubits_for_image=15):
+    """
+    Save circuits from benchmark results with careful memory management.
+    
+    Args:
+        benchmark_result: Dictionary with benchmark results containing circuits
+        output_dir: Directory to save the circuits to
+        max_qubits_for_image: Maximum number of qubits for image rendering
+        
+    Returns:
+        dict: Dictionary with paths to saved circuits
+    """
+    if not QISKIT_AVAILABLE:
+        print("Warning: Qiskit not available. Cannot save benchmark circuits.")
+        return {}
+        
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Dictionary to store saved circuit paths
+    saved_paths = {}
+    
+    # Process each circuit individually to limit memory usage
+    circuit_keys = []
+    
+    # First identify all circuit keys without loading them yet
+    for key, value in benchmark_result.items():
+        if isinstance(value, dict) and "circuit" in value:
+            circuit_keys.append((key, None))  # Direct circuit
+        else:
+            # Look in nested dictionaries
+            for subkey, subvalue in value.items() if isinstance(value, dict) else []:
+                if isinstance(subvalue, dict) and "circuit" in subvalue:
+                    circuit_keys.append((key, subkey))  # Nested circuit
+    
+    # Now process each circuit one at a time
+    for key, subkey in circuit_keys:
+        try:
+            if subkey is None:
+                # Direct circuit
+                circuit = benchmark_result[key]["circuit"]
+                circuit_name = f"{key}_circuit"
+            else:
+                # Nested circuit
+                circuit = benchmark_result[key][subkey]["circuit"]
+                circuit_name = f"{key}_{subkey}_circuit"
+            
+            # Save the circuit with memory optimization
+            if circuit is None:
+                print(f"Warning: Circuit for {circuit_name} is None")
+                continue
+                
+            path = memory_optimized_save_circuit_image(
+                circuit,
+                circuit_name,
+                output_dir=output_dir,
+                max_qubits_for_image=max_qubits_for_image
+            )
+            
+            if path:
+                saved_paths[circuit_name] = path
+            
+            # Force garbage collection after each circuit
+            del circuit
+            gc.collect()
+            
+        except Exception as e:
+            print(f"Error saving circuit {key}/{subkey}: {e}")
+    
+    print(f"Saved {len(saved_paths)} benchmark circuits to {output_dir}")
+    return saved_paths
+
+def optimized_visualize_optimization(circuit, report, filename='optimization_report'):
+    """
+    Create a comprehensive visualization of optimization results with memory management.
+    
+    Args:
+        circuit: The optimized quantum circuit to visualize
+        report: Optimization report containing metrics and results
+        filename: Base filename for the visualization outputs
+        
+    Returns:
+        dict: Dictionary with paths to saved files
+    """
+    if not QISKIT_AVAILABLE:
+        print("Warning: Qiskit not available. Cannot visualize optimization.")
+        return {}
+        
+    # Create output directory
+    output_dir = os.path.dirname(filename)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    saved_files = {}
+    
+    # Step 1: Save the circuit - use memory optimized version
+    try:
+        circuit_path = memory_optimized_save_circuit_image(
+            circuit,
+            os.path.basename(filename) + "_circuit",
+            output_dir=output_dir
+        )
+        if circuit_path:
+            saved_files["circuit"] = circuit_path
+        
+        # Force garbage collection after saving circuit
+        gc.collect()
+    except Exception as e:
+        print(f"Error saving circuit visualization: {e}")
+    
+    # Step 2: Save the optimization report metrics
+    try:
+        # Create a simplified report without large objects
+        simplified_report = {}
+        for key, value in report.items():
+            # Skip non-serializable items and large objects
+            if key not in ['circuit', 'original_circuit', 'replacements']:
+                simplified_report[key] = value
+        
+        # Save the report as JSON
+        import json
+        report_path = f"{filename}_report.json"
+        with open(report_path, 'w') as f:
+            json.dump(simplified_report, f, indent=4)
+        
+        saved_files["report"] = report_path
+        print(f"Optimization report saved to {report_path}")
+        
+        # Force garbage collection
+        del simplified_report
+        gc.collect()
+    except Exception as e:
+        print(f"Error saving optimization report: {e}")
+    
+    # Step 3: Create a simple bar chart showing optimization results
+    if MATPLOTLIB_AVAILABLE:
+        try:
+            # First, close any existing figures
+            plt.close('all')
+            
+            # Extract key metrics
+            original_depth = report.get('original_depth', 0)
+            optimized_depth = report.get('optimized_depth', 0)
+            
+            # Create a simple bar chart
+            plt.figure(figsize=(6, 4))
+            plt.bar(['Original', 'Optimized'], [original_depth, optimized_depth])
+            plt.ylabel('Circuit Depth')
+            plt.title('Optimization Results')
+            
+            # Add percentage reduction
+            reduction = report.get('depth_reduction', 0)
+            if isinstance(reduction, float):
+                reduction_percent = reduction * 100
+            elif original_depth > 0:
+                reduction_percent = (original_depth - optimized_depth) / original_depth * 100
+            else:
+                reduction_percent = 0
+                
+            plt.text(1, optimized_depth / 2, f"{reduction_percent:.1f}% reduction",
+                    ha='center', va='center', fontweight='bold')
+            
+            # Save the plot
+            plot_path = f"{filename}_depth_reduction.png"
+            plt.savefig(plot_path, bbox_inches='tight')
+            plt.close()
+            
+            saved_files["plot"] = plot_path
+            print(f"Depth reduction plot saved to {plot_path}")
+            
+            # Force garbage collection
+            gc.collect()
+        except Exception as e:
+            print(f"Error creating optimization visualization: {e}")
+            # Close any partially created figures
+            plt.close('all')
+    
+    return saved_files

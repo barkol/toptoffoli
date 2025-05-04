@@ -29,5 +29,23 @@ setup(
             "pytest-cov>=2.10.0",
             "black>=20.8b1",
         ],
-    },
+        "zx": [
+            "pyzx>=0.6.0",  # For ZX-calculus optimization
+        ],
+        "rl": [
+            "torch>=1.8.0",  # For RL-based optimization
+            "gym>=0.18.0",   # For RL environment
+        ],
+        "visualization": [
+            "pylatexenc>=2.10",  # For improved circuit visualization
+            "pillow>=8.0.0",     # For image processing
+        ],
+        "all": [
+            "pyzx>=0.6.0",
+            "torch>=1.8.0",
+            "gym>=0.18.0",
+            "pylatexenc>=2.10",
+            "pillow>=8.0.0",
+        ],
+    }
 )
