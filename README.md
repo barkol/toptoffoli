@@ -55,7 +55,7 @@ print(f"Depth reduction: {results['depth_reduction']:.2f}%")
 ## Benchmark
 
 ```bash
-python scripts/main.py --network variable --num_gates 10 --num_qubits 12 --topology grid
+python scripts/main.py benchmark --network variable --num_gates 10 --num_qubits 12 --topology grid
 ```
 
 ## License
