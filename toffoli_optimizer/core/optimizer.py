@@ -220,7 +220,7 @@ class ToffoliPatternLibrary:
         simplified = transpile(circuit_with_ancillas, basis_gates=['u', 'cx'], optimization_level=3)
         return simplified
 		
-def _analyze_simplifications(self):
+    def _analyze_simplifications(self):
         """Analyze the simplifications and identify the best candidates."""
         for pattern_id in self.patterns.keys():
             # Get the original and simplified circuits
@@ -783,11 +783,7 @@ class EnhancedToffoliDepthOptimizer:
         if self.debug_mode:
             self.pattern_library.print_top_simplifications(n=5)
 
-    # Import the core methods from the ToffoliDepthOptimizer class
-    from ._optimizer_methods import (
-        optimize_toffoli_network, _optimize_circuit, _is_better_circuit,
-        estimate_physical_fidelity, calculate_logical_fidelity
-    )
+    
 
 
 # In toffoli_optimizer/core/optimizer.py

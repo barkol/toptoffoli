@@ -140,7 +140,7 @@ class ToffoliCompiler:
         circuit.h(ancilla1)
         circuit.h(ancilla2)
 
-def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancilla1, ancilla2, ancilla3):
+    def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancilla1, ancilla2, ancilla3):
         """Optimized Toffoli with 3 ancilla qubits"""
         circuit.h(ancilla1)
         circuit.h(ancilla2)
@@ -271,7 +271,7 @@ def _create_optimized_3_toffoli(self, circuit, control1, control2, target, ancil
             self.implementations[toffoli_type](qc, control1, control2, target, *ancilla_qubits[:7])
 
 
-def create_toffoli_network(self,
+    def create_toffoli_network(self,
                               toffoli_gates,
                               num_qubits,
                               use_ancilla=True,

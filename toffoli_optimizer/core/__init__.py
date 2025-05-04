@@ -8,7 +8,7 @@ with a focus on minimizing circuit depth while respecting hardware connectivity 
 # Import and expose the main components
 from .compiler import ToffoliCompiler, ToffoliType
 from .optimizer import (
-    ToffoliDepthOptimizer, 
+    EnhancedToffoliDepthOptimizer,
     EnhancedToffoliDepthOptimizer,
     OptimizationStrategy,
     validate_physical_circuit

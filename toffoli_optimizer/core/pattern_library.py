@@ -127,7 +127,7 @@ class ToffoliPatternGenerator:
             if self.debug_mode:
                 print(f"Error computing operator for {pattern_key}: {e}")
 
-def simplify_patterns_with_optimizer(self, pattern_keys=None):
+    def simplify_patterns_with_optimizer(self, pattern_keys=None):
         """
         Simplify patterns using ToffoliDepthOptimizer techniques.
         
@@ -333,7 +333,7 @@ def simplify_patterns_with_optimizer(self, pattern_keys=None):
         print(f"Found {len(equivalent_groups)} groups of equivalent patterns.")
         return equivalent_groups
 		
-def build_pattern_library(self, save_file='toffoli_pattern_library.pkl'):
+    def build_pattern_library(self, save_file='toffoli_pattern_library.pkl'):
         """
         Build and save a complete pattern library.
         
