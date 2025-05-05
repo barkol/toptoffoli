@@ -1,0 +1,452 @@
+Python path: ['/Users/bark/Programy/kody_python/github/toptoffoli', '/opt/anaconda3/lib/python312.zip', '/opt/anaconda3/lib/python3.12', '/opt/anaconda3/lib/python3.12/lib-dynload', '/opt/anaconda3/lib/python3.12/site-packages', '/opt/anaconda3/lib/python3.12/site-packages/aeosa', '/Users/bark/Programy/kody_python/github/toptoffoli']
+Qiskit found! Version: 2.0.0
+Successfully imported ShiftExperiment_FlowControl from scripts directory
+Warning: Qiskit not available. Circuit optimization will be limited.
+Warning: Qiskit not available. RL optimization will be limited.
+Successfully imported ToffoliCompiler
+Successfully imported RLToffoliOptimizer
+Successfully imported ZXOptimizer
+Successfully imported ConsolidatedToffoliDepthOptimizer
+Successfully imported I/O utilities
+Successfully imported circuit utilities
+Successfully imported visualization utilities
+Generating Toffoli network with qubits=3, ancillas=5, controlling_anc=3
+Circuit created with 8 qubits and 4 classical bits
+Extracted 49 Toffoli gates from circuit
+Input qubits: [3, 5, 6, 7]
+Output qubits: [7, 6, 5, 3]
+Total qubits: 8
+Using 49 valid gates after filtering.
+Circuit created with depth 49, 49 gates, 8 qubits
+Running optimization sweep for circuit with 49 gates on 8 qubits
+Target topology: falcon
+Number of trials: 5
+Target fidelities: [0.85, 0.9, 0.95, 0.99]
+Circuit has depth 49
+Circuit text representation saved to comprehensive_results/original/original_circuit_20250504_220944_20250504_220944.txt
+
+=== Running Qiskit Transpiler Optimization ===
+
+Running transpiler with optimization level 1...
+  Level 1, Fidelity 0.85:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.85/optimized_circuit_20250504_220944_20250504_220944.txt
+  Level 1, Fidelity 0.9:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.9/optimized_circuit_20250504_220944_20250504_220944.txt
+  Level 1, Fidelity 0.95:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.95/optimized_circuit_20250504_220944_20250504_220944.txt
+  Level 1, Fidelity 0.99:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.99/optimized_circuit_20250504_220944_20250504_220944.txt
+
+Running transpiler with optimization level 2...
+  Level 2, Fidelity 0.85:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.85/optimized_circuit_20250504_220944_20250504_220944.txt
+  Level 2, Fidelity 0.9:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.9/optimized_circuit_20250504_220944_20250504_220944.txt
+  Level 2, Fidelity 0.95:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.95/optimized_circuit_20250504_220944_20250504_220944.txt
+  Level 2, Fidelity 0.99:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.99/optimized_circuit_20250504_220944_20250504_220945.txt
+
+Running transpiler with optimization level 3...
+  Level 3, Fidelity 0.85:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.85/optimized_circuit_20250504_220944_20250504_220945.txt
+  Level 3, Fidelity 0.9:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.9/optimized_circuit_20250504_220944_20250504_220945.txt
+  Level 3, Fidelity 0.95:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.95/optimized_circuit_20250504_220944_20250504_220945.txt
+  Level 3, Fidelity 0.99:
+    Original depth: 49
+    Optimized depth: 49
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.99/optimized_circuit_20250504_220944_20250504_220945.txt
+
+=== Running ConsolidatedToffoliDepthOptimizer with Different Strategies ===
+
+Running ConsolidatedToffoliDepthOptimizer with strategy STANDARD:
+  Standard optimization balancing depth and fidelity
+
+  Target fidelity 0.85:
+Initializing Toffoli pattern library...
+Direct circuit optimization method not available
+Falling back to optimize_toffoli_network method
+
+Optimizing Toffoli network with 0 gates on 8 qubits
+Using RELATIVE_PHASE_1 implementation
+Max optimization passes: 2
+Optimization strategy: STANDARD
+Target fidelity: 0.85
+Pass timeout: 60 seconds
+Pattern optimization: Enabled (threshold: 10.0%)
+ZX calculus optimization: Enabled
+Reinforcement learning optimization: Enabled
+Creating logical circuit...
+Using 0 valid gates after filtering.
+Logical circuit depth: 0
+Applying pattern-based optimization...
+Pattern-optimized depth: 0 (0.00% reduction)
+Naive physical depth: 49
+Running optimization passes (max: 2)...
+Optimization pass 1/2
+Pass 1 completed in 0.10 seconds
+No improvement in pass 1
+Optimization pass 2/2
+Pass 2 completed in 0.11 seconds
+No improvement in pass 2
+Early termination condition detected (continuing anyway)
+
+Note: Early termination would have triggered, but all 2 passes were completed
+Best results achieved in pass 0
+
+Applying ZX calculus optimization...
+ZX optimization did not improve the circuit
+
+Applying RL-based optimization...
+RL optimization did not improve the circuit
+Optimized logical depth: 0
+Mapping optimized circuit to physical qubits...
+Mapping and optimizing circuit for target hardware (optimization level: 3)...
+Circuit before mapping: 0 depth, 0 gates
+Initial mapping complete: 0 depth, 0 gates
+Optimized mapping complete: 0 depth, 0 gates
+Mapped circuit successfully respects coupling constraints
+Final physical depth: 0
+Final physical gates: 0
+Logical fidelity (function preservation): 0.900000
+Physical fidelity (hardware execution): 1.000000
+Respects coupling constraints: True
+Depth reduction from pattern-optimized to final: 0.00%
+Depth reduction from logical: 0.00%
+Depth reduction from naive: 100.00%
+Optimization completed in 0.5526 seconds
+Circuit text representation saved to toffoli_optimizer_results/circuit_images/original_physical_circuit_20250504_220946.txt
+Circuit text representation saved to toffoli_optimizer_results/circuit_images/optimized_logical_circuit_20250504_220946.txt
+Circuit text representation saved to toffoli_optimizer_results/circuit_images/final_physical_circuit_20250504_220946.txt
+
+Detailed Circuit Comparison:
+
+=== Circuit Comparison ===
+Metric               Original   Mapped     Optimized 
+Depth                0          0          0         
+Width                8          8          8         
+CNOT Count           0          0          0         
+T Gate Count         0          0          0         
+Single-Qubit Gates   0          0          0         
+
+Logical fidelity (function preservation): 0.900000
+Physical fidelity (hardware execution): 1.000000
+    Original depth: 49
+    Optimized depth: 0
+    Depth reduction: 100.00%
+    Runtime: 0.69 seconds
+Circuit text representation saved to comprehensive_results/Consolidated_STANDARD_f0.85/optimized_circuit_20250504_220944_20250504_220946.txt
+
+  Target fidelity 0.9:
+Initializing Toffoli pattern library...
+Direct circuit optimization method not available
+Falling back to optimize_toffoli_network method
+
+Optimizing Toffoli network with 0 gates on 8 qubits
+Using RELATIVE_PHASE_1 implementation
+Max optimization passes: 2
+Optimization strategy: STANDARD
+Target fidelity: 0.9
+Pass timeout: 60 seconds
+Pattern optimization: Enabled (threshold: 10.0%)
+ZX calculus optimization: Enabled
+Reinforcement learning optimization: Enabled
+Creating logical circuit...
+Using 0 valid gates after filtering.
+Logical circuit depth: 0
+Applying pattern-based optimization...
+Pattern-optimized depth: 0 (0.00% reduction)
+Naive physical depth: 49
+Running optimization passes (max: 2)...
+Optimization pass 1/2
+Pass 1 completed in 0.11 seconds
+No improvement in pass 1
+Optimization pass 2/2
+Pass 2 completed in 0.10 seconds
+No improvement in pass 2
+Early termination condition detected (continuing anyway)
+
+Note: Early termination would have triggered, but all 2 passes were completed
+Best results achieved in pass 0
+
+Applying ZX calculus optimization...
+ZX optimization did not improve the circuit
+
+Applying RL-based optimization...
+RL optimization did not improve the circuit
+Python path: ['/Users/bark/Programy/kody_python/github/toptoffoli', '/Users/bark/Programy/kody_python/github/toptoffoli', '/opt/anaconda3/lib/python312.zip', '/opt/anaconda3/lib/python3.12', '/opt/anaconda3/lib/python3.12/lib-dynload', '/opt/anaconda3/lib/python3.12/site-packages', '/opt/anaconda3/lib/python3.12/site-packages/aeosa', '/Users/bark/Programy/kody_python/github/toptoffoli']
+Qiskit found! Version: 2.0.0
+Successfully imported ShiftExperiment_FlowControl from scripts directory
+Warning: Qiskit not available. Circuit optimization will be limited.
+Warning: Qiskit not available. RL optimization will be limited.
+Successfully imported ToffoliCompiler
+Successfully imported RLToffoliOptimizer
+Successfully imported ZXOptimizer
+Successfully imported ConsolidatedToffoliDepthOptimizer
+Successfully imported I/O utilities
+Successfully imported circuit utilities
+Successfully imported visualization utilities
+Generating Toffoli network with qubits=3, ancillas=5, controlling_anc=3
+Circuit created with 8 qubits and 4 classical bits
+No Toffoli gates found in circuit, creating simple example
+Extracted 4 Toffoli gates from circuit
+Input qubits: [0, 1]
+Output qubits: [2, 3, 4, 5]
+Total qubits: 8
+Using 4 valid gates after filtering.
+Circuit created with depth 20, 28 gates, 8 qubits
+Running optimization sweep for circuit with 28 gates on 8 qubits
+Target topology: grid
+Number of trials: 5
+Target fidelities: [0.85, 0.9, 0.95, 0.99]
+Circuit has depth 20
+Circuit contains gate types: {'h', 'cx'}
+Circuit contains 0 Toffoli (ccx) gates
+Circuit text representation saved to comprehensive_results/original/original_circuit_20250504_233520_20250504_233520.txt
+
+=== Running ConsolidatedToffoliDepthOptimizer with Different Strategies ===
+
+Running ConsolidatedToffoliDepthOptimizer with strategy STANDARD:
+  Standard optimization balancing depth and fidelity
+
+  Target fidelity 0.85:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.9:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.95:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.99:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+Running ConsolidatedToffoliDepthOptimizer with strategy ULTRA_DEPTH_REDUCTION:
+  Aggressive depth reduction with controlled fidelity trade-offs
+
+  Target fidelity 0.85:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.9:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.95:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.99:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+Running ConsolidatedToffoliDepthOptimizer with strategy DEPTH_FIDELITY_BALANCE:
+  Explicit balancing of depth and fidelity
+
+  Target fidelity 0.85:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.9:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.95:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.99:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+Running ConsolidatedToffoliDepthOptimizer with strategy HYBRID:
+  Combined approach using multiple techniques
+
+  Target fidelity 0.85:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.9:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.95:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+  Target fidelity 0.99:
+Found 0 Toffoli gates for consolidated optimizer
+No Toffoli gates found for consolidated optimization, skipping
+
+=== Running RL Optimization ===
+
+Running RL optimization with target fidelity 0.85...
+Found 0 Toffoli gates for RL optimizer
+No Toffoli gates found for RL optimization, skipping
+
+Running RL optimization with target fidelity 0.9...
+Found 0 Toffoli gates for RL optimizer
+No Toffoli gates found for RL optimization, skipping
+
+Running RL optimization with target fidelity 0.95...
+Found 0 Toffoli gates for RL optimizer
+No Toffoli gates found for RL optimization, skipping
+
+Running RL optimization with target fidelity 0.99...
+Found 0 Toffoli gates for RL optimizer
+No Toffoli gates found for RL optimization, skipping
+
+=== Running ZX Optimization ===
+
+Running ZX optimization with target fidelity 0.85...
+Found 0 Toffoli gates for ZX optimizer
+No Toffoli gates found for ZX optimization, skipping
+
+Running ZX optimization with target fidelity 0.9...
+Found 0 Toffoli gates for ZX optimizer
+No Toffoli gates found for ZX optimization, skipping
+
+Running ZX optimization with target fidelity 0.95...
+Found 0 Toffoli gates for ZX optimizer
+No Toffoli gates found for ZX optimization, skipping
+
+Running ZX optimization with target fidelity 0.99...
+Found 0 Toffoli gates for ZX optimizer
+No Toffoli gates found for ZX optimization, skipping
+
+=== Running Qiskit Transpiler Optimization ===
+
+Running transpiler with optimization level 1...
+  Level 1, Fidelity 0.85:
+    Original depth: 20
+    Optimized depth: 20
+    Depth reduction: 0.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.85/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 1, Fidelity 0.9:
+    Original depth: 20
+    Optimized depth: 20
+    Depth reduction: 0.00%
+    Runtime: 0.00 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.9/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 1, Fidelity 0.95:
+    Original depth: 20
+    Optimized depth: 20
+    Depth reduction: 0.00%
+    Runtime: 0.00 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.95/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 1, Fidelity 0.99:
+    Original depth: 20
+    Optimized depth: 20
+    Depth reduction: 0.00%
+    Runtime: 0.00 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L1_f0.99/optimized_circuit_20250504_233520_20250504_233520.txt
+
+Running transpiler with optimization level 2...
+  Level 2, Fidelity 0.85:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.85/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 2, Fidelity 0.9:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.9/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 2, Fidelity 0.95:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.00 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.95/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 2, Fidelity 0.99:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L2_f0.99/optimized_circuit_20250504_233520_20250504_233520.txt
+
+Running transpiler with optimization level 3...
+  Level 3, Fidelity 0.85:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.85/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 3, Fidelity 0.9:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.9/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 3, Fidelity 0.95:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.95/optimized_circuit_20250504_233520_20250504_233520.txt
+  Level 3, Fidelity 0.99:
+    Original depth: 20
+    Optimized depth: 16
+    Depth reduction: 20.00%
+    Runtime: 0.01 seconds
+Circuit text representation saved to comprehensive_results/Transpile_L3_f0.99/optimized_circuit_20250504_233520_20250504_233520.txt
+Results saved to comprehensive_results/results.json
+Results table saved to comprehensive_results/results_table.txt
+Comparison chart saved to comprehensive_results/optimization_comparison.png
+
+Optimization sweep completed successfully!

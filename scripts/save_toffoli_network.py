@@ -111,8 +111,8 @@ def save_circuit_as_toffoli_network(filename, qubits=2, ancillas=4, controlling_
         try:
             # Get the operation name and qubit indices using Qiskit 2.0 attributes
             gate_name = instruction.operation.name
-            qubit_indices = [q.index for q in instruction.qubits]
-            clbit_indices = [c.index for c in instruction.clbits] if instruction.clbits else []
+            qubit_indices = [q._index for q in instruction.qubits]
+            clbit_indices = [c._index for c in instruction.clbits] if instruction.clbits else []
             
             gate_data = {
                 "name": gate_name,
@@ -173,7 +173,7 @@ def extract_toffoli_gates_from_circuit(circuit):
         try:
             # Get the operation name and qubit indices
             gate_name = instruction.operation.name
-            qubit_indices = [q.index for q in instruction.qubits]
+            qubit_indices = [q._index for q in instruction.qubits]
             
             # Process only mcx (Toffoli) gates
             if gate_name == "mcx":

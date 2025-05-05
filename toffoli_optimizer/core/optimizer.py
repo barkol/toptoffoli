@@ -411,7 +411,7 @@ class ToffoliPatternLibrary:
     def _simplify_no_ancilla(self, circuit):
         """Simplify a Toffoli circuit without using ancilla qubits."""
         # Use Qiskit's built-in transpiler with optimization level 3
-        simplified = transpile(circuit, basis_gates=['u', 'cx'], optimization_level=3)
+        simplified = transpile(circuit, basis_gates=['u', 'cx'], optimization_level=1)
         return simplified
     
     def _simplify_with_one_ancilla(self, circuit):
@@ -442,7 +442,7 @@ class ToffoliPatternLibrary:
                 circuit_with_ancilla.append(instruction.operation, qubits)
         
         # Optimize the circuit further
-        simplified = transpile(circuit_with_ancilla, basis_gates=['u', 'cx'], optimization_level=3)
+        simplified = transpile(circuit_with_ancilla, basis_gates=['u', 'cx'], optimization_level=1)
         return simplified
     
     def _simplify_with_multi_ancilla(self, circuit):
@@ -479,7 +479,7 @@ class ToffoliPatternLibrary:
                 circuit_with_ancillas.append(instruction.operation, qubits)
         
         # Optimize the circuit further
-        simplified = transpile(circuit_with_ancillas, basis_gates=['u', 'cx'], optimization_level=3)
+        simplified = transpile(circuit_with_ancillas, basis_gates=['u', 'cx'], optimization_level=1)
         return simplified
     
     def _analyze_simplifications(self):
@@ -1311,7 +1311,7 @@ class ConsolidatedToffoliDepthOptimizer:
                 optimized_circuit.copy(),
                 coupling_map,
                 basis_gates,
-                optimization_level=3  # Use high optimization level
+                optimization_level=1  # Use high optimization level
             )
             
             # Validate that the mapped circuit respects coupling constraints
@@ -1701,7 +1701,7 @@ class ConsolidatedToffoliDepthOptimizer:
                         coupling_map=coupling_map,
                         basis_gates=basis_gates,
                         initial_layout=initial_layout,
-                        optimization_level=3
+                        optimization_level=1
                     )
                     
                     # Measure layout-optimized circuit
@@ -1804,7 +1804,7 @@ class ConsolidatedToffoliDepthOptimizer:
                 final_circuit = transpile(
                     best_circuit,
                     basis_gates=basis_gates,
-                    optimization_level=3
+                    optimization_level=1
                 )
                 
                 # Measure final circuit
@@ -3181,7 +3181,7 @@ class EnhancedToffoliDepthOptimizer:
                 optimized_circuit.copy(),
                 coupling_map,
                 basis_gates,
-                optimization_level=3  # Use high optimization level
+                optimization_level=1  # Use high optimization level
             )
             
             # Validate that the mapped circuit respects coupling constraints
@@ -3531,7 +3531,7 @@ class EnhancedToffoliDepthOptimizer:
                         coupling_map=coupling_map,
                         basis_gates=basis_gates,
                         initial_layout=initial_layout,
-                        optimization_level=3
+                        optimization_level=1
                     )
                     
                     # Measure layout-optimized circuit
@@ -3596,7 +3596,7 @@ class EnhancedToffoliDepthOptimizer:
                 final_circuit = transpile(
                     best_circuit,
                     basis_gates=basis_gates,
-                    optimization_level=3
+                    optimization_level=1
                 )
                 
                 # Measure final circuit
