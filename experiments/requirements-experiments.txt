@@ -1,0 +1,7 @@
+# Extra dependencies for reproducing the paper's experiments.
+# Install with:  pip install -e ".[experiments]"  (recommended)
+# or directly:  pip install -r experiments/requirements-experiments.txt
+qiskit-aer>=0.13
+pytket>=1.30
+pytket-qiskit>=0.50
+mqt.qcec>=2.5

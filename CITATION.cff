@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite both the software itself and the
+  companion paper (see `preferred-citation`).
+type: software
+title: >-
+  toptoffoli: Context-Verified, Error-Budget-Aware Toffoli Decomposition
+  Selection
+authors:
+  - family-names: Bartkiewicz
+    given-names: Karol
+    affiliation: >-
+      Institute of Spintronics and Quantum Information,
+      Faculty of Physics and Astronomy, Adam Mickiewicz University,
+      Poznań, Poland
+  - family-names: Tulewicz
+    given-names: Patrycja
+    affiliation: >-
+      Institute of Spintronics and Quantum Information,
+      Faculty of Physics and Astronomy, Adam Mickiewicz University,
+      Poznań, Poland
+repository-code: "https://github.com/barkol/toptoffoli"
+url: "https://github.com/barkol/toptoffoli"
+license: MIT
+version: "1.0.0"
+keywords:
+  - quantum computing
+  - quantum compilation
+  - Toffoli gate
+  - equivalence checking
+  - NISQ
+  - error budget
+preferred-citation:
+  type: article
+  title: >-
+    Context-Verified, Error-Budget-Aware Decomposition Selection for Toffoli
+    Networks
+  authors:
+    - family-names: Bartkiewicz
+      given-names: Karol
+    - family-names: Tulewicz
+      given-names: Patrycja
+  year: 2026
+  journal: "arXiv preprint"
+  url: "https://arxiv.org/abs/2606.31791"
+  notes: >-
+    Submitted to Quantum. Update this entry with the journal DOI once the
+    paper is accepted.

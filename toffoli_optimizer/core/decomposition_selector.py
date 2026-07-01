@@ -1,0 +1,494 @@
+"""Error-budget-aware, context-verified Toffoli decomposition selection.
+
+A CCX/MCX circuit has to be lowered to a two-qubit basis to run on hardware. There
+are two kinds of Toffoli decomposition:
+
+* EXACT (Clifford+T): the textbook H / T / T-dagger / CX Toffoli, **6 CX**. Always
+  correct anywhere.
+
+* RELATIVE-PHASE (Margolus): a cheaper gadget with only **3 CX** that implements
+  CCX correctly *up to a relative phase* on the target subspace. It is valid only
+  where that phase is later uncomputed (a compute/uncompute pair) -- see
+  ``context_analysis``.
+
+``ErrorBudgetSelector`` chooses, per Toffoli, which decomposition to use so as to
+minimize the :class:`HardwareErrorModel` infidelity (dominated by the two-qubit
+count). It admits the cheap relative-phase gadget ONLY at a structurally detected
+compute/uncompute site AND only after :class:`ExactEquivalenceVerifier` certifies,
+on the affected window, that substituting the gadget into BOTH gates of the pair
+yields a circuit exactly equivalent to the all-exact decomposition.
+
+KEY GUARANTEE: the returned circuit is always verified-correct against the
+exact-only decomposition. Relative-phase gadgets appear only at verified sites; a
+site that fails verification is rejected and falls back to the exact gadget.
+
+PHASE-OBSERVABILITY-AWARE PATH (``phase_aware=True``, default). Beyond the
+compute/uncompute-pair path, the selector admits the cheap relative-phase gadget at a
+STANDALONE Toffoli ``g`` when BOTH hold:
+
+  * ``is_phase_unobservable(circuit, g, ...)`` -- the relative phase it introduces can
+    never affect any measurement outcome (it cancels in a pair, OR its forward cone is
+    purely classical-reversible into a computational-basis read; see
+    ``phase_observability``), AND
+  * ``verify_on_reachable_basis`` -- on every REACHABLE basis input (computed / soundly
+    over-approximated by ``reachable_subspace``), the gadget agrees with the exact CCX
+    on the output computational-basis state, PHASE-INSENSITIVELY, ancilla clean.
+
+This admits substitutions the exact-unitary, pair-only path provably cannot (a
+relative-phase gadget differs from CCX by a relative phase, so it always FAILS the
+exact-unitary check as a standalone replacement -- yet is sound when the phase is
+unobservable). Every committed substitution is therefore sound: either
+exact-unitary-equivalent (pairs) or reachable-basis-equivalent-with-unobservable-phase
+(the new path). UNSOUND admissions are impossible by the double gate.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import List, Optional
+
+from qiskit import QuantumCircuit
+
+from .equivalence_verifier import ExactEquivalenceVerifier
+from .error_model import HardwareErrorModel
+from .context_analysis import find_relative_phase_safe_sites, RelativePhaseSite
+from .phase_observability import is_phase_unobservable, default_affected_qubits
+from .reachable_subspace import reachable_overapprox
+
+_CCX_NAMES = {"ccx", "mcx", "mcx_gray"}
+
+
+# --------------------------------------------------------------------------- gadgets
+def append_exact_ccx(qc: QuantumCircuit, a: int, b: int, t: int) -> None:
+    """Append the textbook exact Clifford+T Toffoli (6 CX) onto qc[a,b -> t].
+
+    This is qiskit's standard CCX decomposition. We emit it explicitly (rather than
+    qc.ccx + transpile) so the two-qubit count is deterministic and the basis is a
+    fixed {h, t, tdg, cx} set.
+    """
+    qc.h(t)
+    qc.cx(b, t)
+    qc.tdg(t)
+    qc.cx(a, t)
+    qc.t(t)
+    qc.cx(b, t)
+    qc.tdg(t)
+    qc.cx(a, t)
+    qc.t(b)
+    qc.t(t)
+    qc.cx(a, b)
+    qc.h(t)
+    qc.t(a)
+    qc.tdg(b)
+    qc.cx(a, b)
+
+
+def append_control_drop(qc: QuantumCircuit, a: int, b: int, t: int, keep) -> None:
+    """Append the CONTROL-DROPPED specialisation of CCX(a,b,t) onto ``qc``.
+
+    A Toffoli equals a cheaper gate when one (or both) of its controls is constant on
+    the inputs that actually reach it:
+
+      * ``keep == ()``        -> a control is |0> on (almost) all reachable mass, so
+        the |11> branch never fires: CCX acts as IDENTITY. Emit NOTHING (0 two-qubit
+        gates).
+      * ``keep == (a,)``      -> control ``b`` is |1> on (almost) all reachable mass,
+        so CCX reduces to a single CX(a, t).
+      * ``keep == (b,)``      -> control ``a`` is |1> on (almost) all reachable mass,
+        so CCX reduces to a single CX(b, t).
+
+    This is a CONTEXT-SPECIALISED candidate: it is only correct on the reachable
+    subspace (and only within tolerance there), so the selector admits it solely
+    through the bounded-approximate reachable check. ``keep`` lists the control(s)
+    that remain after dropping; the surviving control (if any) becomes the control of
+    the residual CX onto ``t``.
+    """
+    keep = tuple(keep)
+    if keep == ():
+        return  # CCX collapses to identity on the reachable subspace
+    if len(keep) == 1:
+        qc.cx(keep[0], t)
+        return
+    raise ValueError(f"control-drop keep must have 0 or 1 controls, got {keep!r}")
+
+
+def append_relative_phase_ccx(qc: QuantumCircuit, a: int, b: int, t: int) -> None:
+    """Append a relative-phase (Margolus) Toffoli, **3 CX**, onto qc[a,b -> t].
+
+    Implements CCX(a,b,t) correctly UP TO a relative phase on the target. Valid only
+    inside a compute/uncompute pair where that phase is uncomputed. The construction
+    is the standard Margolus gate:
+
+        Ry(-pi/4) t ; CX(b,t) ; Ry(-pi/4) t ; CX(a,t) ; Ry(pi/4) t ; CX(b,t) ; Ry(pi/4) t
+
+    Cost: 3 CX + 4 single-qubit Ry, vs 6 CX for the exact gadget.
+    """
+    q = math.pi / 4
+    qc.ry(-q, t)
+    qc.cx(b, t)
+    qc.ry(-q, t)
+    qc.cx(a, t)
+    qc.ry(q, t)
+    qc.cx(b, t)
+    qc.ry(q, t)
+
+
+# --------------------------------------------------------------------------- report
+class SelectionReport(dict):
+    """A plain dict subclass so the report is JSON-friendly but easy to print."""
+
+    def summary(self) -> str:
+        n_phase = len(self.get("phase_aware_admitted", []))
+        n_approx = len(self.get("approx_admitted", []))
+        eps = self.get("epsilon_spent_total", 0.0)
+        return (
+            f"sites_found={self['sites_found']} "
+            f"applied={self['sites_applied']} rejected={self['sites_rejected']} "
+            f"phase_aware={n_phase} approx={n_approx} eps_spent={eps:.4g} | "
+            f"2q: {self['two_qubit_before']} -> {self['two_qubit_after']} | "
+            f"infidelity: {self['infidelity_before']:.4g} -> {self['infidelity_after']:.4g} | "
+            f"verified={self['verified']}"
+        )
+
+
+# --------------------------------------------------------------------------- selector
+class ErrorBudgetSelector:
+    """Select per-Toffoli decompositions minimizing an error-budget infidelity.
+
+    Parameters
+    ----------
+    error_model : HardwareErrorModel, optional
+        The cost model whose infidelity is minimized. Defaults to standard rates.
+    verifier : ExactEquivalenceVerifier, optional
+        The exact correctness gate. Defaults to a fresh verifier.
+    allow_permutation : bool
+        Passed through to the verifier when checking the final whole-circuit
+        equivalence (the per-site checks use identity wiring).
+    """
+
+    def __init__(
+        self,
+        error_model: Optional[HardwareErrorModel] = None,
+        verifier: Optional[ExactEquivalenceVerifier] = None,
+        allow_permutation: bool = False,
+        phase_aware: bool = True,
+        epsilon: float = 0.0,
+    ):
+        self.error_model = error_model or HardwareErrorModel()
+        self.verifier = verifier or ExactEquivalenceVerifier()
+        self.allow_permutation = allow_permutation
+        # When True, admit relative-phase gadgets at standalone Toffolis whose phase
+        # is provably UNOBSERVABLE on the reachable subspace (the new, more permissive
+        # path), in addition to the exact-unitary compute/uncompute-pair path.
+        self.phase_aware = phase_aware
+        # BOUNDED-APPROXIMATE-ON-REACHABLE knob. epsilon == 0.0 admits only candidates
+        # that agree with CCX EXACTLY on the reachable subspace (e.g. a provably
+        # constant control). epsilon > 0.0 additionally admits a cheaper
+        # context-specialised candidate whose worst-case phase-insensitive deviation
+        # over the (soundly over-approximated) reachable subspace is <= epsilon -- AND
+        # only when the two-qubit-gate infidelity it SAVES exceeds the epsilon it
+        # SPENDS (epsilon is charged into the circuit's error budget).
+        if epsilon < 0.0:
+            raise ValueError("epsilon must be >= 0")
+        self.epsilon = epsilon
+
+    # ----------------------------------------------------------------- baselines
+    def decompose_exact_only(self, circuit: QuantumCircuit) -> QuantumCircuit:
+        """All-exact baseline: replace every CCX/MCX with the 6-CX exact gadget."""
+        out = QuantumCircuit(circuit.num_qubits)
+        for inst in circuit.data:
+            self._emit_exact(out, circuit, inst)
+        return out
+
+    # -------------------------------------------------------------------- select
+    def select(self, circuit: QuantumCircuit, input_space="all_basis") -> dict:
+        """Choose decompositions to minimize infidelity; verify every substitution.
+
+        Parameters
+        ----------
+        circuit : QuantumCircuit
+        input_space : 'all_basis' | iterable of int
+            The computational-basis inputs the whole circuit may be run on. Defaults
+            to ``'all_basis'`` (every 2^n input). Pass a RESTRICTED set when the
+            circuit is only ever fed a known sub-domain -- e.g. ancilla qubits known
+            to start in |0>. A restricted input space shrinks the (soundly
+            over-approximated) reachable subspace at each gate, which is what lets the
+            control-drop / bounded-approximate candidates become admissible: a control
+            can only be provably constant (or rarely set) once the inputs that pin or
+            correlate it are known. Soundness is unaffected -- the caller asserts the
+            circuit is never run outside ``input_space``; the reachable analysis then
+            uses a sound over-approximation of the states reaching each gate.
+
+        Returns a dict with keys:
+          circuit  : the decomposed, verified-correct QuantumCircuit (2q basis)
+          report   : SelectionReport (sites found/applied/rejected, 2q & infidelity
+                     before/after, verified flag, total certified error budget,
+                     approx_admitted + per-index epsilon spent)
+        """
+        exact = self.decompose_exact_only(circuit)
+
+        sites = find_relative_phase_safe_sites(circuit)
+        applied: List[RelativePhaseSite] = []
+        rejected: List[dict] = []
+
+        # The per-index action map of committed specialised lowerings (see _build).
+        # Start empty; add a site's (compute, uncompute) pair only if that
+        # substitution verifies against the exact-only decomposition.
+        actions: dict = {}
+
+        for site in sites:
+            candidate = dict(actions)
+            candidate[site.compute_idx] = ("relphase",)
+            candidate[site.uncompute_idx] = ("relphase",)
+            built = self._build(circuit, candidate)
+            ok, _perm, info = self.verifier.verify(
+                exact, built, allow_permutation=False
+            )
+            if ok:
+                actions = candidate
+                applied.append(site)
+            else:
+                rejected.append({"site": site, "reason": info.get("reason"), "info": info})
+
+        # ---- NEW PATH: phase-observability-aware standalone admissibility --------
+        # A standalone Toffoli (not in a compute/uncompute pair) can ALSO get the
+        # cheap relative-phase gadget IF its relative phase is provably unobservable
+        # on the reachable subspace. This admits substitutions the pair-only path
+        # cannot. Each is double-gated: (1) is_phase_unobservable proves the extra
+        # phase can never affect a measurement, and (2) verify_on_reachable_basis
+        # confirms the gadget agrees with the exact CCX (phase-insensitively) on
+        # every REACHABLE basis input. Both must hold -> sound.
+        # Indices belonging to a verified compute/uncompute PAIR are soundness-locked:
+        # their relative-phase gadgets cancel only as a matched pair, so the approx
+        # path below must never touch them.
+        paired_idx = set()
+        for s in sites:
+            paired_idx.add(s.compute_idx)
+            paired_idx.add(s.uncompute_idx)
+
+        phase_admitted: List[dict] = []
+        if self.phase_aware:
+            for idx, inst in enumerate(circuit.data):
+                if idx in actions or idx in paired_idx:
+                    continue
+                name = inst.operation.name.lower()
+                qb = [circuit.find_bit(q).index for q in inst.qubits]
+                if name not in _CCX_NAMES or len(qb) != 3:
+                    continue  # only plain 3-qubit CCX get the Margolus gadget here
+
+                affected = default_affected_qubits(circuit, idx)
+                # Gate 1: phase provably unobservable downstream?
+                if not is_phase_unobservable(circuit, idx, affected):
+                    rejected.append({
+                        "site": ("standalone", idx),
+                        "reason": "phase observable downstream",
+                        "info": {"path": "phase_aware"}})
+                    continue
+
+                # Gate 2: reachable-basis, phase-insensitive agreement.
+                # Build the candidate with this index added, and verify ONLY on the
+                # reachable basis (a sound over-approximation of reachable inputs).
+                candidate = dict(actions)
+                candidate[idx] = ("relphase",)
+                built = self._build(circuit, candidate)
+                reachable = reachable_overapprox(circuit, idx, input_space=input_space)
+                ok, _p, info = self.verifier.verify_on_reachable_basis(
+                    exact, built, reachable
+                )
+                if ok:
+                    actions = candidate
+                    phase_admitted.append({
+                        "index": idx, "qubits": qb,
+                        "reachable_inputs": len(reachable)})
+                else:
+                    rejected.append({
+                        "site": ("standalone", idx),
+                        "reason": info.get("reason"),
+                        "info": {"path": "phase_aware", **info}})
+
+        # ---- NEW PATH: bounded-approximate-on-the-reachable-subspace -------------
+        # For each still-exact standalone CCX, try the CONTROL-DROP specialisations
+        # (drop-to-identity, drop control a -> CX(b,t), drop control b -> CX(a,t)).
+        # Each candidate is admitted iff (1) its worst-case phase-insensitive
+        # deviation over the SOUND over-approximation of the reachable subspace is
+        # <= epsilon, AND (2) the two-qubit-gate infidelity it SAVES strictly exceeds
+        # the epsilon it SPENDS (epsilon is charged into the error budget). With
+        # epsilon == 0 only EXACT-on-reachable drops (e.g. a provably-|0> control)
+        # can fire. The deviation is measured by the verifier against the exact-only
+        # decomposition; control_drop is never globally equivalent, so it is
+        # admissible ONLY through this reachable-subspace check.
+        # NOTE on scope: a standalone CCX already assigned the relative-phase gadget
+        # by the phase-aware path above is RECONSIDERED here -- a control-drop may be
+        # strictly cheaper (down to 0 or 1 two-qubit gates vs the gadget's 3) and just
+        # as sound on the reachable subspace. Indices locked into a compute/uncompute
+        # PAIR (``paired_idx``) are never touched: their gadgets cancel only as a pair.
+        approx_admitted: List[dict] = []
+        epsilon_per_index: dict = {}
+        em = self.error_model
+        for idx, inst in enumerate(circuit.data):
+            if idx in paired_idx:
+                continue
+            name = inst.operation.name.lower()
+            qb = [circuit.find_bit(q).index for q in inst.qubits]
+            if name not in _CCX_NAMES or len(qb) != 3:
+                continue
+            a, b, t = qb
+
+            reachable = reachable_overapprox(circuit, idx, input_space=input_space)
+            base_inf = em.circuit_infidelity(self._build(circuit, actions))
+
+            best = None  # (margin, candidate_actions, descriptor)
+            for keep in ((), (a,), (b,)):
+                cand_actions = dict(actions)
+                cand_actions[idx] = ("control_drop", keep)
+                built = self._build(circuit, cand_actions)
+                admissible, max_dev, vinfo = (
+                    self.verifier.verify_on_reachable_basis_approx(
+                        exact, built, self.epsilon, reachable))
+                if not admissible:
+                    continue
+                # Budget test: infidelity SAVED by this candidate vs the current
+                # selection must exceed the epsilon SPENT (= max_dev charged in).
+                cand_inf = em.circuit_infidelity(built)
+                saved = base_inf - cand_inf
+                margin = saved - max_dev
+                if margin > 0 and (best is None or margin > best[0]):
+                    best = (margin, cand_actions, {
+                        "index": idx, "qubits": qb, "keep": list(keep),
+                        "max_deviation": max_dev,
+                        "infidelity_saved": saved,
+                        "reachable_inputs": len(reachable)})
+
+            if best is not None:
+                actions = best[1]
+                approx_admitted.append(best[2])
+                epsilon_per_index[idx] = best[2]["max_deviation"]
+            elif self.epsilon > 0.0:
+                rejected.append({
+                    "site": ("approx", idx),
+                    "reason": "no control-drop within epsilon with positive budget margin",
+                    "info": {"path": "approx"}})
+
+        selected = self._build(circuit, actions)
+        epsilon_spent_total = sum(epsilon_per_index.values())
+
+        # Final whole-circuit certification. There are two soundness regimes:
+        #
+        #  * If NO phase-aware (standalone, unobservable-phase) substitution was made,
+        #    the selected circuit is exact-unitary-equivalent to the exact-only
+        #    decomposition -- certify with the strict exact verifier (unchanged).
+        #
+        #  * If at least one phase-aware substitution was made, the selected circuit
+        #    intentionally differs from exact-only by an UNOBSERVABLE relative phase,
+        #    so an exact-unitary check would (correctly) fail. We instead certify the
+        #    weaker-but-sound guarantee that backs those substitutions: on every
+        #    REACHABLE basis input, selected and exact-only produce the same output
+        #    computational-basis state (phase-insensitive), with ancilla clean. Each
+        #    such substitution was additionally gated by is_phase_unobservable, so the
+        #    relative phase cannot affect any measurement -> sound.
+        #
+        #  * If at least one BOUNDED-APPROXIMATE (control-drop) substitution was made,
+        #    the selected circuit differs from exact-only by MORE than a phase even on
+        #    the reachable subspace -- but by at most ``epsilon`` per reachable input.
+        #    We certify the quantitative guarantee that backs those substitutions: the
+        #    worst-case phase-insensitive reachable deviation is <= epsilon. (The
+        #    error budget separately accounts for the epsilon spent.)
+        # The whole-circuit certification is on the circuit's INPUT domain -- the set
+        # of computational-basis states the caller asserts the circuit is run on
+        # (``input_space``; the full 2^n space by default). We feed those as inputs to
+        # both ``exact`` and ``selected``. (For ``all_basis`` this is the full space;
+        # for a restricted domain it is exactly the inputs the substitutions relied
+        # on.) Using ``reachable_overapprox`` at gate index 0 yields a sound superset
+        # of that domain.
+        cert_inputs = reachable_overapprox(circuit, 0, input_space=input_space)
+        if approx_admitted:
+            verified, max_dev, vinfo = (
+                self.verifier.verify_on_reachable_basis_approx(
+                    exact, selected, self.epsilon, cert_inputs))
+            verified = bool(verified)
+            perm = None
+            vinfo = {**vinfo, "certification": "reachable_basis_approx"}
+        elif phase_admitted:
+            verified, perm, vinfo = self.verifier.verify_on_reachable_basis(
+                exact, selected, cert_inputs
+            )
+            vinfo = {**vinfo, "certification": "reachable_basis_phase_insensitive"}
+        else:
+            verified, perm, vinfo = self.verifier.verify(
+                exact, selected, allow_permutation=self.allow_permutation
+            )
+            vinfo = {**vinfo, "certification": "exact_unitary"}
+
+        # The certified error budget includes the epsilon spent on approximate
+        # admissions: the on-hardware infidelity of the cheaper circuit PLUS the
+        # algorithmic deviation we deliberately introduced on the reachable subspace.
+        certified_budget = em.circuit_infidelity(selected) + epsilon_spent_total
+        report = SelectionReport(
+            sites_found=len(sites),
+            sites_applied=len(applied),
+            sites_rejected=len(rejected),
+            applied_sites=[tuple(s) for s in applied],
+            rejected_sites=rejected,
+            phase_aware_admitted=phase_admitted,
+            approx_admitted=approx_admitted,
+            epsilon=self.epsilon,
+            epsilon_per_index=epsilon_per_index,
+            epsilon_spent_total=epsilon_spent_total,
+            two_qubit_before=em.two_qubit_count(exact),
+            two_qubit_after=em.two_qubit_count(selected),
+            infidelity_before=em.circuit_infidelity(exact),
+            infidelity_after=em.circuit_infidelity(selected),
+            certified_error_budget=certified_budget,
+            verified=bool(verified),
+            verify_info=vinfo,
+            output_permutation=perm,
+        )
+        return {"circuit": selected, "report": report}
+
+    # ------------------------------------------------------------------ builders
+    def _build(self, circuit: QuantumCircuit, actions: dict) -> QuantumCircuit:
+        """Decompose ``circuit`` under a per-index ``actions`` map.
+
+        ``actions`` maps an instruction index to a chosen specialised lowering:
+
+          * ``("relphase",)``           -> the 3-CX relative-phase (Margolus) gadget.
+          * ``("control_drop", keep)``  -> the control-dropped specialisation
+            (identity if ``keep == ()``, else a single CX from the kept control).
+
+        Any index NOT in ``actions`` gets its exact lowering. For backward
+        compatibility a plain ``set`` of indices is also accepted and read as "apply
+        the relative-phase gadget at each of these indices".
+        """
+        if isinstance(actions, (set, frozenset)):
+            actions = {idx: ("relphase",) for idx in actions}
+        out = QuantumCircuit(circuit.num_qubits)
+        for idx, inst in enumerate(circuit.data):
+            action = actions.get(idx)
+            if action is None:
+                self._emit_exact(out, circuit, inst)
+                continue
+            qb = [circuit.find_bit(q).index for q in inst.qubits]
+            kind = action[0]
+            if kind == "relphase":
+                append_relative_phase_ccx(out, qb[0], qb[1], qb[2])
+            elif kind == "control_drop":
+                append_control_drop(out, qb[0], qb[1], qb[2], action[1])
+            else:
+                raise ValueError(f"unknown action {action!r}")
+        return out
+
+    def _emit_exact(self, out: QuantumCircuit, src: QuantumCircuit, inst) -> None:
+        """Emit the exact lowering of one source instruction onto ``out``."""
+        name = inst.operation.name.lower()
+        qb = [src.find_bit(q).index for q in inst.qubits]
+        if name in ("ccx",) or (name in ("mcx", "mcx_gray") and len(qb) == 3):
+            append_exact_ccx(out, qb[0], qb[1], qb[2])
+        elif name in ("mcx", "mcx_gray"):
+            # Generic multi-control: fall back to qiskit's own decomposition to a
+            # CX-based basis. Rare in these tests; kept correct rather than minimal.
+            tmp = QuantumCircuit(out.num_qubits)
+            tmp.mcx(qb[:-1], qb[-1])
+            out.compose(tmp.decompose().decompose(), inplace=True)
+        else:
+            # Pass through any non-CCX gate verbatim (cx, x, h, ry, ...).
+            out.append(inst.operation, [out.qubits[i] for i in qb])

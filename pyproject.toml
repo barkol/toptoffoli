@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toffoli-optimizer"
+version = "1.0.0"
+description = "Context-verified, error-budget-aware decomposition selection for Toffoli networks."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Karol Bartkiewicz", email = "karol.bartkiewicz@amu.edu.pl" },
+    { name = "Patrycja Tulewicz" },
+]
+keywords = [
+    "quantum computing",
+    "quantum compilation",
+    "Toffoli gate",
+    "equivalence checking",
+    "NISQ",
+    "error budget",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "qiskit>=1.2",
+    "numpy>=1.19",
+    "matplotlib>=3.3",
+]
+
+[project.optional-dependencies]
+experiments = [
+    "qiskit-aer>=0.13",
+    "pytket>=1.30",
+    "pytket-qiskit>=0.50",
+    "mqt.qcec>=2.5",
+]
+dev = [
+    "pytest>=7",
+    "pytest-cov>=4",
+]
+
+[project.urls]
+Homepage = "https://github.com/barkol/toptoffoli"
+Repository = "https://github.com/barkol/toptoffoli"
+Preprint = "https://arxiv.org/abs/2606.31791"
+
+[project.scripts]
+toffoli-optimizer = "toffoli_optimizer.scripts.main:main"
+
+[tool.setuptools.packages.find]
+include = ["toffoli_optimizer*"]
+exclude = ["tests*", "examples*", "benchmarks*", "experiments*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
