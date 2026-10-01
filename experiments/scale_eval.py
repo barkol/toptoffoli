@@ -166,8 +166,15 @@ class ScalableErrorBudgetSelector:
                                  "equivalent": res.equivalent,
                                  "detail": res.detail})
 
+        # Condition (W): window-certified mirror pairs (exact check on the segment).
+        from toffoli_optimizer.core.window_pairs import admit_window_pairs
+        rel_idx, wlog = admit_window_pairs(
+            circuit, rel_idx, append_relative_phase_ccx,
+            accepted_windows=[(s.compute_idx, s.uncompute_idx) for s in applied])
+
         selected = self._build(circuit, rel_idx)
         return {
+            "window_pairs": len(wlog),
             "circuit": selected,
             "exact": exact,
             "sites_found": len(sites),
@@ -368,6 +375,7 @@ def run():
             "relphase_safe": qc.relphase_safe,
             "sites_found": sres["sites_found"],
             "sites_applied": sres["sites_applied"],
+            "window_pairs": sres.get("window_pairs", 0),
             "twoq_exact": sres["two_qubit_before"],
             "twoq_ours": sres["two_qubit_after"],
             "infid_exact": sres["infid_before"],
