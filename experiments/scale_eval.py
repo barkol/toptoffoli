@@ -495,27 +495,24 @@ def write_markdown(path, rows, cross, spotcheck):
              "exhaustive-verification limit\n")
     L.append(
         "Large CCX/MCX benchmarks (12-24 qubits, `large_benchmarks.large_suite()`), "
-        "decomposed by the QCEC-gated `ScalableErrorBudgetSelector` and scored with "
-        f"toptoffoli's `HardwareErrorModel` (p2q={EM.p2q}, p1q={EM.p1q}). Each accepted "
-        "compute/uncompute-pair relative-phase substitution is certified against the "
-        "all-exact decomposition by `verify_scalable`: **exhaustive** "
-        f"(truth-table / dense unitary) at width <= {EXHAUSTIVE_MAX_QUBITS}, **QCEC** "
-        "(decision-diagram unitary equivalence up to global phase) above it.\n")
+        "decomposed by the certified `ScalableErrorBudgetSelector` (structural pairs (C), "
+        "certified windows (W), mirrored gadgets under (R) with clean ancillas pinned to |0>) "
+        f"and scored with toptoffoli's `HardwareErrorModel` (p2q={EM.p2q}, p1q={EM.p1q}). "
+        "Every output is certified against the all-exact decomposition on the input "
+        "subspace (subroutine equivalence): densely when that is cheap, otherwise with "
+        "QCEC (pinned qubits declared as ancillas). An output that cannot be certified is "
+        "replaced by the all-exact circuit and reported as such.\n")
 
     # ---- soundness regime legend
     L.append("## Verification regimes (kept strictly separate)\n")
     L.append(
         "- **exhaustively verified** — `ExactEquivalenceVerifier.verify` ran "
         "(ground truth). Feasible only up to ~12-13 qubits here.\n"
-        "- **QCEC-verified unitary (up to global phase)** — decision-diagram proof "
-        "for the unitary-equivalent compute/uncompute-pair substitutions, at widths "
-        "where exhaustive is infeasible.\n"
-        "- **analysis-sound phase-aware** — relative-phase substitutions whose phase "
-        "is merely *unobservable* are NOT unitary-equivalent, so QCEC reports "
-        "`not_equivalent` for them by construction. Their soundness rests on "
-        "`phase_observability` + the SOUND `reachable_overapprox` (which can only "
-        "OVER-reject), spot-checked exhaustively on small instances. We never label "
-        "these 'verified'.\n")
+        "- **QCEC-verified on the input subspace (up to global phase)** — decision-diagram "
+        "proof at widths where exhaustive is infeasible.\n"
+        "- **program mode (condition U)** — relative-phase substitutions whose phase is "
+        "only *unobservable* at the final measurement are NOT subroutine-equivalent and are "
+        "not used here; see `scale_program.py`.\n")
 
     # ---- main per-circuit table
     L.append("## Per-circuit results\n")
@@ -566,23 +563,12 @@ def write_markdown(path, rows, cross, spotcheck):
         for fam, v in sorted(fam_red.items(), key=lambda kv: -sum(kv[1]) / len(kv[1]))
     )
     L.append(
-        f"> **Does the -39.5% hold at scale? No -- it is workload-dependent, and we "
-        f"report that honestly.** The small-suite headline was -39.5% 2q / -36.7% "
-        f"infidelity vs exact-only. On this larger, adder/multiplier-heavy suite the "
-        f"reduction over exact-only is **{allg['red_2q_vs_exact']:.1f}% 2q / "
-        f"{allg['red_inf_vs_exact']:.1f}% infidelity** across all {allg['n']} "
-        f"circuits, and **{safe['red_2q_vs_exact']:.1f}% 2q** on the "
-        f"compute/uncompute-structured subset. The reduction is REAL and "
-        f"machine-checked, but its size tracks how many Toffolis sit in cancellable "
-        f"compute/uncompute pairs: by family, mean 2q reduction is {fam_summary}. "
-        f"Grover-style AND-ladder oracles (every CCX paired) reach ~49%; ripple "
-        f"adders, whose carry Toffolis are mostly NOT paired, only ~4-7%; pure "
-        f"array multipliers, whose partial-product ANDs are all live, get 0% "
-        f"(correctly kept exact -- a sound selector must not substitute there). The "
-        f"'mixed' oracles keep their live Toffoli exact yet still reduce their paired "
-        f"ladder, which is why the LIVE-tagged subset is non-zero ("
-        f"{live['red_2q_vs_exact']:.1f}%): the per-gate selector finds the safe pairs "
-        f"a blanket substitution would miss.\n")
+        f"> On this suite the reduction over exact-only is **{allg['red_2q_vs_exact']:.1f}% 2q / "
+        f"{allg['red_inf_vs_exact']:.1f}% infidelity** across all {allg['n']} circuits, and "
+        f"**{safe['red_2q_vs_exact']:.1f}% 2q** on the compute/uncompute-structured subset. "
+        f"Mean 2q reduction by family: {fam_summary}. The size tracks the share of Toffolis "
+        f"that are uncomputed or write into clean ancillas; Toffolis accumulating into "
+        f"undeclared output registers (array multipliers, live-carry adders) stay exact.\n")
 
     # ---- phase-aware regime
     L.append("## Phase-aware regime (QCEC-uncertifiable; analysis-sound)\n")
@@ -590,10 +576,10 @@ def write_markdown(path, rows, cross, spotcheck):
         "The phase-AWARE standalone path (a lone relative-phase Toffoli whose phase "
         "is merely *unobservable*) is NOT unitary-equivalent to exact CCX, so QCEC "
         "reports `not_equivalent` for it by construction. Its admissibility is decided "
-        "by the width-independent static analysis below. The QCEC-gated scalable "
-        "selector evaluated above does NOT use this path (it only does the "
-        "unitary-equivalent pair substitutions), so these numbers do not inflate the "
-        "reductions; they document the additional, analysis-sound headroom.\n")
+        "by the width-independent static analysis below. The certified selector "
+        "evaluated above does NOT use this path, so these numbers do not inflate the "
+        "reductions; they count the Toffolis that program mode could additionally "
+        "touch.\n")
     L.append("| Circuit | n | standalone CCX | phase-unobservable (analysis) |")
     L.append("|---|---|---|---|")
     for r in rows:
@@ -663,8 +649,7 @@ def write_markdown(path, rows, cross, spotcheck):
         f"**~{speedup:.0f}x** gap). QCEC stays under **{max_qcec:.2f} s** across the "
         f"WHOLE 6-22 qubit range. The crossover -- where exhaustive stops being "
         f"practical and QCEC takes over -- is therefore around "
-        f"**n = 11-12 qubits**; the per-circuit certification above uses exhaustive "
-        f"only at n <= {EXHAUSTIVE_MAX_QUBITS} and QCEC beyond.\n")
+        f"**n = 11-12 qubits**.\n")
 
     with open(path, "w") as fh:
         fh.write("\n".join(L) + "\n")
