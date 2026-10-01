@@ -187,6 +187,8 @@ class ErrorBudgetSelector:
         phase_aware: bool = True,
         epsilon: float = 0.0,
         semantics: str = "subroutine",
+        window_pairs: bool = True,
+        max_window_qubits: int = 12,
     ):
         self.error_model = error_model or HardwareErrorModel()
         self.verifier = verifier or ExactEquivalenceVerifier()
@@ -207,6 +209,9 @@ class ErrorBudgetSelector:
         if semantics not in ("subroutine", "program"):
             raise ValueError(f"semantics must be 'subroutine' or 'program', got {semantics!r}")
         self.semantics = semantics
+        # Condition (W): window-certified mirror pairs (exact segment check).
+        self.window_pairs = window_pairs
+        self.max_window_qubits = max_window_qubits
         # BOUNDED-APPROXIMATE-ON-REACHABLE knob. epsilon == 0.0 admits only candidates
         # that agree with CCX EXACTLY on the reachable subspace (e.g. a provably
         # constant control). epsilon > 0.0 additionally admits a cheaper
@@ -276,6 +281,23 @@ class ErrorBudgetSelector:
             else:
                 rejected.append({"site": site, "reason": info.get("reason"), "info": info})
 
+        # ---- Condition (W): window-certified mirror pairs ------------------------
+        # Pairs the structural detector rejects (a gate between them writes a
+        # control or the target) can still cancel their phases, e.g. the mirrored
+        # MAJ/UMA blocks of a Cuccaro adder. Each pair is admitted only if the
+        # segment between them, with gadgets, equals the exact segment up to one
+        # global phase (exact check on the qubits the segment touches).
+        from .window_pairs import admit_window_pairs
+        window_pairs_log: List[dict] = []
+        if self.window_pairs:
+            gad = {k for k, a in actions.items() if a[0] == "relphase"}
+            gad2, window_pairs_log = admit_window_pairs(
+                circuit, gad, append_relative_phase_ccx,
+                max_window_qubits=self.max_window_qubits,
+                accepted_windows=[(s_.compute_idx, s_.uncompute_idx) for s_ in applied])
+            for k in gad2 - gad:
+                actions[k] = ("relphase",)
+
         # ---- NEW PATH: phase-observability-aware standalone admissibility --------
         # A standalone Toffoli (not in a compute/uncompute pair) can ALSO get the
         # cheap relative-phase gadget IF its relative phase is provably unobservable
@@ -291,6 +313,8 @@ class ErrorBudgetSelector:
         for s in sites:
             paired_idx.add(s.compute_idx)
             paired_idx.add(s.uncompute_idx)
+        for w in window_pairs_log:
+            paired_idx.update(w["pair"])
 
         phase_admitted: List[dict] = []
         if self.phase_aware and self.semantics == "program":
@@ -486,6 +510,7 @@ class ErrorBudgetSelector:
             applied_sites=[tuple(s) for s in applied],
             rejected_sites=rejected,
             phase_aware_admitted=phase_admitted,
+            window_pairs_admitted=window_pairs_log,
             approx_admitted=approx_admitted,
             epsilon=self.epsilon,
             epsilon_per_index=epsilon_per_index,

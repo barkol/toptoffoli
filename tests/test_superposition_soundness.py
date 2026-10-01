@@ -123,6 +123,25 @@ def test_gate_level_states_not_used_as_circuit_inputs():
     print("[7] PASS: X;X;CCX on |000> keeps the Toffoli's effect (target flipped)")
 
 
+def test_window_pairs_mirror_adder():
+    # Condition (W): mirrored MAJ/UMA-style pair whose window writes a control
+    # (structural rule rejects it) but whose segment equals the exact one.
+    c = QuantumCircuit(5)
+    c.ccx(0, 1, 2); c.cx(3, 2); c.cx(4, 0); c.cx(4, 0); c.cx(3, 2); c.ccx(0, 1, 2)
+    rep = ErrorBudgetSelector().select(c)["report"]
+    rep_c = ErrorBudgetSelector(window_pairs=False).select(c)["report"]
+    assert rep_c["sites_applied"] == 0, "structural rule must reject (target and control written)"
+    assert len(rep["window_pairs_admitted"]) == 1
+    assert rep["verified"] is True and rep["semantics"] == "subroutine"
+    # A window that breaks the cancellation must be rejected.
+    d = QuantumCircuit(3); d.ccx(0, 1, 2); d.h(0); d.ccx(0, 1, 2)
+    rep_d = ErrorBudgetSelector().select(d)["report"]
+    assert not rep_d["window_pairs_admitted"], rep_d["window_pairs_admitted"]
+    assert rep_d["verified"] is True
+    print(f"[8] PASS: window pairs certified on the segment (admitted {len(rep['window_pairs_admitted'])}, "
+          f"structural {rep_c['sites_applied']}); H inside the window rejected")
+
+
 def test_pairs_remain_unitary_exact():
     c = QuantumCircuit(4); c.ccx(0, 1, 2); c.cx(2, 3); c.ccx(0, 1, 2)
     res = ErrorBudgetSelector().select(c)
@@ -139,5 +158,6 @@ if __name__ == "__main__":
     test_control_drop_rejected_when_control_in_superposition()
     test_default_subroutine_semantics_never_uses_U()
     test_gate_level_states_not_used_as_circuit_inputs()
+    test_window_pairs_mirror_adder()
     test_pairs_remain_unitary_exact()
     print("\nAll superposition-soundness tests passed.")
