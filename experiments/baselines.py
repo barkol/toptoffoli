@@ -62,10 +62,23 @@ def score(name, out_circ, ref_circ, allow_perm):
     permutation).
     """
     n_anc = out_circ.num_qubits - ref_circ.num_qubits
+    # Correctness = subroutine equivalence on the input subspace (clean ancillas
+    # pinned to |0>), the semantics of the paper; identical for every method.
     try:
-        ok, perm, info = VERIFIER.verify(ref_circ, out_circ, allow_permutation=allow_perm)
+        from _clean import clean_ancillas
+        from qiskit.quantum_info import Operator
+        from toffoli_optimizer.core.subspace_check import certify_on_input_subspace
+        if n_anc:
+            raise ValueError("method added ancillas")
+        pm = sum(1 << q for q in clean_ancillas(ref_circ))
+        inputs = [x for x in range(2 ** ref_circ.num_qubits) if not x & pm]
+        exact = ErrorBudgetSelector().decompose_exact_only(ref_circ)
+        ok = bool(certify_on_input_subspace(Operator(exact).data, Operator(out_circ).data, inputs, "subroutine")[0])
+        if not ok and allow_perm:
+            ok, perm, info = VERIFIER.verify(ref_circ, out_circ, allow_permutation=True)
+        info = {"reason": "input-subspace certificate"}
     except Exception as exc:
-        ok, perm, info = None, None, {"reason": f"verify raised {exc!r}"}
+        ok, info = None, {"reason": f"verify raised {exc!r}"}
     return {
         "method": name,
         "infid": EM.circuit_infidelity(out_circ),
