@@ -155,6 +155,20 @@ def test_mirror_gadget_on_clean_ancilla():
           "certified on the input subspace; rejected when the ancilla is free")
 
 
+def test_window_pairs_never_share_an_endpoint():
+    # Audit finding (round 2): three identical Toffolis g0, g3, g5 must not form two
+    # windows (0,3) and (3,5) sharing g3.
+    from toffoli_optimizer.core.window_pairs import mirror_pair_candidates
+    c = QuantumCircuit(4)
+    c.ccx(0, 1, 2); c.cx(3, 0); c.cx(3, 0); c.ccx(0, 1, 2); c.cx(2, 3); c.ccx(0, 1, 2)
+    cands = mirror_pair_candidates(c)
+    ends = [k for p in cands for k in p]
+    assert len(ends) == len(set(ends)), cands
+    rep = ErrorBudgetSelector().select(c)["report"]
+    assert rep["verified"] is True
+    print(f"[10] PASS: mirror candidates are disjoint {cands}; output certified")
+
+
 def test_pairs_remain_unitary_exact():
     c = QuantumCircuit(4); c.ccx(0, 1, 2); c.cx(2, 3); c.ccx(0, 1, 2)
     res = ErrorBudgetSelector().select(c)
@@ -173,5 +187,6 @@ if __name__ == "__main__":
     test_gate_level_states_not_used_as_circuit_inputs()
     test_window_pairs_mirror_adder()
     test_mirror_gadget_on_clean_ancilla()
+    test_window_pairs_never_share_an_endpoint()
     test_pairs_remain_unitary_exact()
     print("\nAll superposition-soundness tests passed.")

@@ -563,12 +563,15 @@ class ErrorBudgetSelector:
             vinfo = {**vinfo, "certification": f"input_subspace_{semantics}",
                      "certified_deviation": cert_dev}
         else:
-            # Too wide for a whole-circuit unitary: soundness rests on the per-gate
-            # conditions (C)/(R)/(U) of the soundness theorem. Reported as such and
-            # NOT as a machine-checked whole-circuit certificate.
-            verified, perm = None, None
-            vinfo = {"certification": "per_gate_conditions_only",
-                     "reason": "circuit too wide for whole-circuit unitary check"}
+            # Too wide for a dense certificate: decision diagrams (QCEC), with the
+            # pinned qubits declared as ancillas initialised to |0>, i.e. the
+            # equivalence on the input subspace. Fail closed: if the certificate
+            # cannot be established, the all-exact circuit is returned below.
+            from .subspace_check import qcec_certify_on_subspace
+            ok_q, vinfo = qcec_certify_on_subspace(exact, selected, pinned_zero,
+                                                   observational=bool(phase_admitted))
+            verified, perm = (True if ok_q else False), None
+            vinfo = {**vinfo, "certification": "qcec_input_subspace"}
 
         # Fail closed: a failed whole-circuit certificate must never let an
         # uncertified circuit out. Fall back to the all-exact decomposition.

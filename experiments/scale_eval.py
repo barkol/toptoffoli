@@ -251,15 +251,10 @@ def certify(exact: QuantumCircuit, selected: QuantumCircuit, pinned_zero=()):
             ok = certify_on_input_subspace(Operator(exact).data, Operator(selected).data, inputs, "subroutine")[0]
             return SimpleNamespace(equivalent=bool(ok), method="dense_subspace", wall_time_s=_t.time() - t0,
                                    detail={"equivalence_criterion": "subroutine"}, n_qubits=n)
-        import mqt.qcec as qcec
-        try:
-            r = qcec.verify(_with_ancillas(exact, pinned_zero), _with_ancillas(selected, pinned_zero), timeout=120)
-        except TypeError:
-            r = qcec.verify(_with_ancillas(exact, pinned_zero), _with_ancillas(selected, pinned_zero))
-        eq = str(r.equivalence).split(".")[-1]
-        return SimpleNamespace(equivalent=eq in ("equivalent", "equivalent_up_to_global_phase", "equivalent_up_to_phase"),
-                               method="qcec_ancilla", wall_time_s=_t.time() - t0,
-                               detail={"equivalence_criterion": eq}, n_qubits=n)
+        from toffoli_optimizer.core.subspace_check import qcec_certify_on_subspace
+        ok, info = qcec_certify_on_subspace(exact, selected, pinned_zero)
+        return SimpleNamespace(equivalent=bool(ok), method="qcec_ancilla", wall_time_s=_t.time() - t0,
+                               detail={"equivalence_criterion": info.get("qcec", info.get("reason"))}, n_qubits=n)
     """Certify selected == exact-only via verify_scalable; record method + time."""
     res = verify_scalable(
         exact, selected, exhaustive_max_qubits=EXHAUSTIVE_MAX_QUBITS, timeout_s=120
@@ -417,6 +412,10 @@ def run():
 
         # certify selected vs exact-only (on the input subspace if ancillas are pinned)
         cert = certify(sres["exact"], sres["circuit"], pinned_zero=pins if sres.get("r_gadgets") else ())
+        if cert.equivalent is not True:
+            # fail closed: an uncertified selection is never reported as a reduction
+            sres = dict(sres, circuit=sres["exact"], two_qubit_after=sres["two_qubit_before"],
+                        infid_after=sres["infid_before"], fell_back=True)
 
         # qiskit opt-3 for comparison (2q count / infid)
         t0 = time.time()

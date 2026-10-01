@@ -58,6 +58,7 @@ def mirror_pair_candidates(circuit, exclude=()) -> List[Tuple[int, int]]:
             if info[j] == info[i]:
                 if j not in excl and j not in used:
                     pairs.append((i, j))
+                    used.update((i, j))   # every Toffoli belongs to at most one pair
                 break
     pairs.sort(key=lambda p: p[1] - p[0])
     return pairs
@@ -97,7 +98,10 @@ def window_certified(circuit, i: int, j: int, gadget_idx, append_gadget: Callabl
 
 
 def _crosses(a, b):
+    """Windows that cross or share an endpoint (not nested, not disjoint)."""
     (i, j), (k, l) = a, b
+    if {i, j} & {k, l}:
+        return True
     return (i < k < j < l) or (k < i < l < j)
 
 

@@ -148,3 +148,39 @@ def certify_on_input_subspace(
         dev = 0.0
     return dev <= tolerance + atol, float(dev), {
         "method": f"input_subspace_{mode}", "inputs": len(cols), **info}
+
+
+def with_ancillas(circ, pinned):
+    """Same circuit with the pinned qubits moved into an AncillaRegister (last),
+    so QCEC treats them as initialised to |0>."""
+    from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister
+    pinned = list(pinned)
+    pset = set(pinned)
+    free = [q for q in range(circ.num_qubits) if q not in pset]
+    pos = {q: k for k, q in enumerate(free + pinned)}
+    regs = [QuantumRegister(len(free), "d")] + ([AncillaRegister(len(pinned), "anc0")] if pinned else [])
+    out = QuantumCircuit(*regs)
+    for inst in circ.data:
+        out.append(inst.operation, [out.qubits[pos[circ.find_bit(q).index]] for q in inst.qubits])
+    return out
+
+
+def qcec_certify_on_subspace(exact, selected, pinned_zero=(), observational=False, timeout=120):
+    """Whole-circuit certificate with MQT QCEC on the input subspace (pinned qubits
+    are ancillas initialised to |0>). Returns (ok, info). ``ok`` is True only for
+    a proof of equivalence up to a global phase; anything else (not equivalent,
+    timeout, no information, QCEC unavailable, or a program-semantics circuit,
+    which QCEC cannot certify) is False, so callers fail closed."""
+    if observational:
+        return False, {"reason": "program-semantics output: no decision-diagram certificate"}
+    try:
+        import mqt.qcec as qcec
+    except Exception as exc:
+        return False, {"reason": f"QCEC unavailable: {exc!r}"}
+    try:
+        r = qcec.verify(with_ancillas(exact, pinned_zero), with_ancillas(selected, pinned_zero), timeout=timeout)
+    except TypeError:
+        r = qcec.verify(with_ancillas(exact, pinned_zero), with_ancillas(selected, pinned_zero))
+    eq = str(r.equivalence).split(".")[-1]
+    ok = eq in ("equivalent", "equivalent_up_to_global_phase")
+    return ok, {"qcec": eq}
