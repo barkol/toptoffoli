@@ -110,6 +110,19 @@ def test_default_subroutine_semantics_never_uses_U():
           "program semantics admits it under (U), certified observationally")
 
 
+def test_gate_level_states_not_used_as_circuit_inputs():
+    # Audit finding B4: X q0; X q1; CCX with input |000>. The control-drop to identity
+    # must NOT be admitted (both controls are 1 at the gate).
+    c = QuantumCircuit(3); c.x(0); c.x(1); c.ccx(0, 1, 2)
+    res = ErrorBudgetSelector(epsilon=0.0).select(c, input_space=[0])
+    rep = res["report"]
+    assert all(d["keep"] != [] for d in rep["approx_admitted"]), rep["approx_admitted"]
+    sv = Statevector.from_int(0, 8).evolve(res["circuit"]).probabilities()
+    assert abs(sv[0b111] - 1) < 1e-9
+    assert rep["verified"] is True and not rep["fell_back_to_exact"]
+    print("[7] PASS: X;X;CCX on |000> keeps the Toffoli's effect (target flipped)")
+
+
 def test_pairs_remain_unitary_exact():
     c = QuantumCircuit(4); c.ccx(0, 1, 2); c.cx(2, 3); c.ccx(0, 1, 2)
     res = ErrorBudgetSelector().select(c)
@@ -125,5 +138,6 @@ if __name__ == "__main__":
     test_fig1b_control_interference_rejected_and_forced_gadget_detected()
     test_control_drop_rejected_when_control_in_superposition()
     test_default_subroutine_semantics_never_uses_U()
+    test_gate_level_states_not_used_as_circuit_inputs()
     test_pairs_remain_unitary_exact()
     print("\nAll superposition-soundness tests passed.")

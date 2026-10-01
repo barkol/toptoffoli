@@ -464,6 +464,17 @@ class ErrorBudgetSelector:
             vinfo = {"certification": "per_gate_conditions_only",
                      "reason": "circuit too wide for whole-circuit unitary check"}
 
+        # Fail closed: a failed whole-circuit certificate must never let an
+        # uncertified circuit out. Fall back to the all-exact decomposition.
+        fell_back = False
+        if verified is False:
+            selected = exact
+            fell_back = True
+            applied, phase_admitted, approx_admitted = [], [], []
+            epsilon_per_index, epsilon_spent_total = {}, 0.0
+            verified, perm, vinfo = True, None, {
+                **vinfo, "fallback": "exact_only_after_failed_certificate"}
+
         # The certified error budget includes the epsilon spent on approximate
         # admissions: the on-hardware infidelity of the cheaper circuit PLUS the
         # algorithmic deviation we deliberately introduced on the reachable subspace.
@@ -486,6 +497,7 @@ class ErrorBudgetSelector:
             certified_error_budget=certified_budget,
             verified=verified if verified is None else bool(verified),
             semantics=semantics,
+            fell_back_to_exact=fell_back,
             verify_info=vinfo,
             output_permutation=perm,
         )
