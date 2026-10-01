@@ -1,4 +1,4 @@
-"""Mirror test of subroutine equivalence on IBM hardware (Table 6 of the paper).
+"""Mirror test of subroutine equivalence on IBM hardware (mirror-test table, Section 5.3 of the paper).
 Test lustrzany (subroutine) na IBM: M = H_d . V^dag . [bariera] . E . H_d, pomiar wszystkich kubitow.
 E = dekompozycja dokladna, V = wariant (pass 'sub' albo count-greedy). Jesli U_V P_in = e^{i th} U_E P_in,
 to P(0...0) = 1 idealnie; fazy wzgledne na osiagalnych stanach obnizaja P0. H tylko na kubitach danych
