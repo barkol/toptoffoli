@@ -124,11 +124,14 @@ class ScalableErrorBudgetSelector:
                 out.append(inst.operation, [out.qubits[i] for i in qb])
         return out
 
-    def _build(self, circuit: QuantumCircuit, rel_idx: set) -> QuantumCircuit:
+    def _build(self, circuit: QuantumCircuit, rel_idx: set, mirror_idx=frozenset()) -> QuantumCircuit:
+        from toffoli_optimizer.core.decomposition_selector import append_relative_phase_ccx_mirror
         out = QuantumCircuit(circuit.num_qubits)
         for idx, inst in enumerate(circuit.data):
             qb = [circuit.find_bit(q).index for q in inst.qubits]
-            if idx in rel_idx:
+            if idx in mirror_idx:
+                append_relative_phase_ccx_mirror(out, qb[0], qb[1], qb[2])
+            elif idx in rel_idx:
                 append_relative_phase_ccx(out, qb[0], qb[1], qb[2])
             else:
                 name = inst.operation.name.lower()
@@ -138,7 +141,7 @@ class ScalableErrorBudgetSelector:
                     out.append(inst.operation, [out.qubits[i] for i in qb])
         return out
 
-    def select(self, circuit: QuantumCircuit) -> dict:
+    def select(self, circuit: QuantumCircuit, pinned_zero=()) -> dict:
         exact = self.decompose_exact_only(circuit)
         sites = find_relative_phase_safe_sites(circuit)
 
@@ -172,8 +175,30 @@ class ScalableErrorBudgetSelector:
             circuit, rel_idx, append_relative_phase_ccx,
             accepted_windows=[(s.compute_idx, s.uncompute_idx) for s in applied])
 
-        selected = self._build(circuit, rel_idx)
+        # Condition (R) for gadgets: exact local reachability (classical prefix,
+        # ancillas pinned to |0>); Margolus or mirrored gadget if it equals CCX on
+        # the projected reachable subspace with one phase.
+        from toffoli_optimizer.core.reach_local import local_reachable
+        from toffoli_optimizer.core.subspace_check import check_on_subspace
+        from toffoli_optimizer.core.decomposition_selector import _U_CCX, _U_MARG, _U_MARG_M
+        mirror_idx = set()
+        r_count = 0
+        for idx, inst in enumerate(circuit.data):
+            if idx in rel_idx or inst.operation.name.lower() not in ("ccx", "mcx", "mcx_gray") or len(inst.qubits) != 3:
+                continue
+            qb = tuple(circuit.find_bit(q).index for q in inst.qubits)
+            loc = local_reachable(circuit, idx, qb, pinned_zero)
+            if loc is None:
+                continue
+            if check_on_subspace(_U_MARG, _U_CCX, loc, 0.0)[0]:
+                rel_idx = rel_idx | {idx}; r_count += 1
+            elif check_on_subspace(_U_MARG_M, _U_CCX, loc, 0.0)[0]:
+                rel_idx = rel_idx | {idx}; mirror_idx.add(idx); r_count += 1
+
+        selected = self._build(circuit, rel_idx, mirror_idx)
         return {
+            "rel_idx": sorted(rel_idx), "mirror_idx": sorted(mirror_idx),
+            "r_gadgets": r_count,
             "window_pairs": len(wlog),
             "circuit": selected,
             "exact": exact,
@@ -192,10 +217,52 @@ class ScalableErrorBudgetSelector:
 # ===========================================================================
 # whole-circuit certification of the selected output vs exact-only
 # ===========================================================================
-def certify(exact: QuantumCircuit, selected: QuantumCircuit):
+def _with_ancillas(circ: QuantumCircuit, pinned) -> QuantumCircuit:
+    """Same circuit with the pinned qubits moved into an AncillaRegister (last),
+    so QCEC treats them as initialised to |0> (equivalence on the input subspace)."""
+    from qiskit import QuantumRegister, AncillaRegister
+    pinned = list(pinned)
+    free = [q for q in range(circ.num_qubits) if q not in set(pinned)]
+    order = free + pinned
+    pos = {q: k for k, q in enumerate(order)}
+    regs = [QuantumRegister(len(free), "d")] + ([AncillaRegister(len(pinned), "anc0")] if pinned else [])
+    out = QuantumCircuit(*regs)
+    for inst in circ.data:
+        qb = [pos[circ.find_bit(q).index] for q in inst.qubits]
+        out.append(inst.operation, [out.qubits[k] for k in qb])
+    return out
+
+
+def certify(exact: QuantumCircuit, selected: QuantumCircuit, pinned_zero=()):
+    """Certify selected == exact-only. Without pinned qubits: verify_scalable
+    (unitary up to global phase). With pinned qubits (condition (R) gadgets):
+    dense input-subspace certificate up to 12 qubits, QCEC with ancilla registers
+    above (equivalence on the subspace where the pinned qubits start in |0>)."""
+    if pinned_zero:
+        import time as _t
+        from types import SimpleNamespace
+        n = exact.num_qubits
+        t0 = _t.time()
+        if n <= 12:
+            from qiskit.quantum_info import Operator
+            from toffoli_optimizer.core.subspace_check import certify_on_input_subspace
+            pm = sum(1 << q for q in pinned_zero)
+            inputs = [x for x in range(1 << n) if not x & pm]
+            ok = certify_on_input_subspace(Operator(exact).data, Operator(selected).data, inputs, "subroutine")[0]
+            return SimpleNamespace(equivalent=bool(ok), method="dense_subspace", wall_time_s=_t.time() - t0,
+                                   detail={"equivalence_criterion": "subroutine"}, n_qubits=n)
+        import mqt.qcec as qcec
+        try:
+            r = qcec.verify(_with_ancillas(exact, pinned_zero), _with_ancillas(selected, pinned_zero), timeout=120)
+        except TypeError:
+            r = qcec.verify(_with_ancillas(exact, pinned_zero), _with_ancillas(selected, pinned_zero))
+        eq = str(r.equivalence).split(".")[-1]
+        return SimpleNamespace(equivalent=eq in ("equivalent", "equivalent_up_to_global_phase", "equivalent_up_to_phase"),
+                               method="qcec_ancilla", wall_time_s=_t.time() - t0,
+                               detail={"equivalence_criterion": eq}, n_qubits=n)
     """Certify selected == exact-only via verify_scalable; record method + time."""
     res = verify_scalable(
-        exact, selected, exhaustive_max_qubits=EXHAUSTIVE_MAX_QUBITS
+        exact, selected, exhaustive_max_qubits=EXHAUSTIVE_MAX_QUBITS, timeout_s=120
     )
     return res
 
@@ -344,10 +411,12 @@ def run():
     for qc in suite:
         n = qc.num_qubits
         sel = ScalableErrorBudgetSelector()
-        sres = sel.select(qc)
+        from _clean import clean_ancillas
+        pins = clean_ancillas(qc)
+        sres = sel.select(qc, pinned_zero=pins)
 
-        # certify selected vs exact-only (scalable dispatch)
-        cert = certify(sres["exact"], sres["circuit"])
+        # certify selected vs exact-only (on the input subspace if ancillas are pinned)
+        cert = certify(sres["exact"], sres["circuit"], pinned_zero=pins if sres.get("r_gadgets") else ())
 
         # qiskit opt-3 for comparison (2q count / infid)
         t0 = time.time()
@@ -376,6 +445,8 @@ def run():
             "sites_found": sres["sites_found"],
             "sites_applied": sres["sites_applied"],
             "window_pairs": sres.get("window_pairs", 0),
+            "r_gadgets": sres.get("r_gadgets", 0),
+            "pinned": len(pins),
             "twoq_exact": sres["two_qubit_before"],
             "twoq_ours": sres["two_qubit_after"],
             "infid_exact": sres["infid_before"],

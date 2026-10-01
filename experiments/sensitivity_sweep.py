@@ -150,7 +150,7 @@ def run_sweep(ratios, p1q_fixed=1e-3):
             p2q = r * p1q_fixed
             em = HardwareErrorModel(p2q=p2q, p1q=p1q_fixed)
             sel = ErrorBudgetSelector(error_model=em, phase_aware=True)
-            res = sel.select(qc)
+            res = sel.select(qc, pinned_zero=__import__("_clean").clean_ancillas(qc))
             rep = res["report"]
             mix = _mix_from_report(qc, rep)
             inf_before = rep["infidelity_before"]
@@ -187,7 +187,7 @@ def run_devices():
         em = HardwareErrorModel(p2q=dev.p2q, p1q=dev.p1q)
         sel = ErrorBudgetSelector(error_model=em, phase_aware=True)
         for qc in _subset():
-            res = sel.select(qc)
+            res = sel.select(qc, pinned_zero=__import__("_clean").clean_ancillas(qc))
             rep = res["report"]
             mix = _mix_from_report(qc, rep)
             inf_before = rep["infidelity_before"]

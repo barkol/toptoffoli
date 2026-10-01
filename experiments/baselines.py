@@ -119,7 +119,8 @@ def m_exact_only(circ: QuantumCircuit) -> QuantumCircuit:
 
 
 def m_ours(circ: QuantumCircuit) -> QuantumCircuit:
-    return ErrorBudgetSelector().select(circ)["circuit"]
+    from _clean import clean_ancillas
+    return ErrorBudgetSelector().select(circ, pinned_zero=clean_ancillas(circ))["circuit"]
 
 
 def m_count_greedy(circ: QuantumCircuit) -> QuantumCircuit:

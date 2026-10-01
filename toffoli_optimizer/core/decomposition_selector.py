@@ -67,6 +67,13 @@ def _ccx_matrix():
 
 _U_CCX = _ccx_matrix()
 
+
+def _gadget_matrix(fn):
+    from qiskit.quantum_info import Operator
+    qc = QuantumCircuit(3)
+    fn(qc, 0, 1, 2)
+    return Operator(qc).data
+
 # Whole-circuit unitary certification is attempted up to this width.
 _CERT_MAX_QUBITS = 12
 
@@ -144,6 +151,25 @@ def append_relative_phase_ccx(qc: QuantumCircuit, a: int, b: int, t: int) -> Non
     qc.ry(q, t)
     qc.cx(b, t)
     qc.ry(q, t)
+
+
+def append_relative_phase_ccx_mirror(qc: QuantumCircuit, a: int, b: int, t: int) -> None:
+    """Mirrored Margolus gadget, **3 CX**: the four Ry angles change sign.
+
+    Its diagonal phase -1 sits on the output |a=1, b=0, t=1> instead of
+    |a=1, b=0, t=0>. That branch is unreachable when the target enters in |0>
+    (an AND written into a clean ancilla) and when it enters holding a&b (the
+    uncompute), so on those reachable subspaces the gadget equals CCX exactly and
+    condition (R) admits it without any pairing.
+    """
+    q = math.pi / 4
+    qc.ry(q, t)
+    qc.cx(b, t)
+    qc.ry(q, t)
+    qc.cx(a, t)
+    qc.ry(-q, t)
+    qc.cx(b, t)
+    qc.ry(-q, t)
 
 
 # --------------------------------------------------------------------------- report
@@ -232,7 +258,7 @@ class ErrorBudgetSelector:
         return out
 
     # -------------------------------------------------------------------- select
-    def select(self, circuit: QuantumCircuit, input_space="all_basis") -> dict:
+    def select(self, circuit: QuantumCircuit, input_space="all_basis", pinned_zero=()) -> dict:
         """Choose decompositions to minimize infidelity; verify every substitution.
 
         Parameters
@@ -297,6 +323,50 @@ class ErrorBudgetSelector:
                 accepted_windows=[(s_.compute_idx, s_.uncompute_idx) for s_ in applied])
             for k in gad2 - gad:
                 actions[k] = ("relphase",)
+
+        # ---- Condition (R) for relative-phase gadgets -----------------------------
+        # A standalone Toffoli gets a 3-CX gadget when the gadget equals CCX on the
+        # reachable subspace with one phase. The mirrored gadget does so for every
+        # AND written into a clean ancilla and for its uncompute. Reachability is
+        # exact (vectorised) for classical prefixes, else the sound over-approx.
+        from .reach_local import local_reachable
+        pinned_zero = tuple(pinned_zero)
+
+        def _local(idx, qbs):
+            loc = (local_reachable(circuit, idx, qbs, pinned_zero)
+                   if input_space == "all_basis" else None)
+            if loc is None:
+                reach = reachable_overapprox(circuit, idx, input_space=_space)
+                loc = project_support(reach, qbs)
+            return loc
+
+        # Input space for the over-approximation: valid inputs with pinned qubits 0.
+        _space = input_space
+        if pinned_zero and input_space == "all_basis" and circuit.num_qubits <= 20:
+            _pm = sum(1 << q for q in pinned_zero)
+            _space = [x for x in range(1 << circuit.num_qubits) if not x & _pm]
+
+        rphase_admitted: List[dict] = []
+        locked = {k for k in actions}
+        for w in window_pairs_log:
+            locked.update(w["pair"])
+        for s_ in sites:
+            locked.update((s_.compute_idx, s_.uncompute_idx))
+        for idx, inst in enumerate(circuit.data):
+            if idx in locked:
+                continue
+            name = inst.operation.name.lower()
+            qb = [circuit.find_bit(q).index for q in inst.qubits]
+            if name not in _CCX_NAMES or len(qb) != 3:
+                continue
+            local = _local(idx, tuple(qb))
+            for kind, U_g in (("relphase", _U_MARG), ("relphase_m", _U_MARG_M)):
+                ok_r, dev_r, _ = check_on_subspace(U_g, _U_CCX, local, 0.0)
+                if ok_r:
+                    actions[idx] = (kind,)
+                    rphase_admitted.append({"index": idx, "qubits": qb, "gadget": kind,
+                                            "condition": "R", "reachable_local": len(local)})
+                    break
 
         # ---- NEW PATH: phase-observability-aware standalone admissibility --------
         # A standalone Toffoli (not in a compute/uncompute pair) can ALSO get the
@@ -383,8 +453,15 @@ class ErrorBudgetSelector:
             # changed the support of its target, which we model soundly by an H on
             # that target (free value) in the circuit used for reachability.
             reach_circ, idx_map = self._reach_circuit(circuit, perturbed_targets)
-            reachable = reachable_overapprox(reach_circ, idx_map[idx], input_space=input_space)
-            local = project_support(reachable, (a, b, t))
+            local = None
+            if not perturbed_targets and input_space == "all_basis":
+                from .reach_local import local_reachable as _lr
+                local = _lr(circuit, idx, (a, b, t), pinned_zero)
+            if local is None:
+                reachable = reachable_overapprox(reach_circ, idx_map[idx], input_space=_space)
+                local = project_support(reachable, (a, b, t))
+            else:
+                reachable = local
             base_inf = em.circuit_infidelity(self._build(circuit, actions))
 
             best = None  # (margin, candidate_actions, descriptor)
@@ -459,11 +536,16 @@ class ErrorBudgetSelector:
         # on.) Using ``reachable_overapprox`` at gate index 0 yields a sound superset
         # of that domain.
         cert_inputs = reachable_overapprox(circuit, 0, input_space=input_space)
+        if pinned_zero:
+            pm = 0
+            for q in pinned_zero:
+                pm |= 1 << q
+            cert_inputs = [x for x in cert_inputs if not (x & pm)]
         # Semantics actually guaranteed: subroutine equivalence (one global phase on
         # the whole input subspace) unless some substitution relied on condition (U),
         # in which case observational equivalence (terminal basis measurement).
         semantics = "observational" if phase_admitted else "subroutine"
-        if not (approx_admitted or phase_admitted):
+        if not (approx_admitted or phase_admitted or rphase_admitted or pinned_zero):
             verified, perm, vinfo = self.verifier.verify(
                 exact, selected, allow_permutation=self.allow_permutation
             )
@@ -494,7 +576,7 @@ class ErrorBudgetSelector:
         if verified is False:
             selected = exact
             fell_back = True
-            applied, phase_admitted, approx_admitted = [], [], []
+            applied, phase_admitted, approx_admitted, rphase_admitted = [], [], [], []
             epsilon_per_index, epsilon_spent_total = {}, 0.0
             verified, perm, vinfo = True, None, {
                 **vinfo, "fallback": "exact_only_after_failed_certificate"}
@@ -511,6 +593,8 @@ class ErrorBudgetSelector:
             rejected_sites=rejected,
             phase_aware_admitted=phase_admitted,
             window_pairs_admitted=window_pairs_log,
+            rphase_admitted=rphase_admitted,
+            pinned_zero=list(pinned_zero),
             approx_admitted=approx_admitted,
             epsilon=self.epsilon,
             epsilon_per_index=epsilon_per_index,
@@ -578,6 +662,8 @@ class ErrorBudgetSelector:
             kind = action[0]
             if kind == "relphase":
                 append_relative_phase_ccx(out, qb[0], qb[1], qb[2])
+            elif kind == "relphase_m":
+                append_relative_phase_ccx_mirror(out, qb[0], qb[1], qb[2])
             elif kind == "control_drop":
                 append_control_drop(out, qb[0], qb[1], qb[2], action[1])
             else:
@@ -599,3 +685,7 @@ class ErrorBudgetSelector:
         else:
             # Pass through any non-CCX gate verbatim (cx, x, h, ry, ...).
             out.append(inst.operation, [out.qubits[i] for i in qb])
+
+
+_U_MARG = _gadget_matrix(append_relative_phase_ccx)
+_U_MARG_M = _gadget_matrix(append_relative_phase_ccx_mirror)

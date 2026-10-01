@@ -28,8 +28,10 @@ def main():
     for m, L in [(3, 3), (3, 5), (3, 7), (4, 7)]:
         qc = resetting_circuit(m, L)
         nccx = sum(1 for inst in qc.data if inst.operation.name == "ccx")
-        r = sel.select(qc)
-        cert = certify(r["exact"], r["circuit"])
+        from _clean import clean_ancillas
+        pins = clean_ancillas(qc)
+        r = sel.select(qc, pinned_zero=pins)
+        cert = certify(r["exact"], r["circuit"], pinned_zero=pins if r.get("r_gadgets") else ())
         b, a = r["two_qubit_before"], r["two_qubit_after"]
         ib, ia = r["infid_before"], r["infid_after"]
         print(f"{qc.name:18s} {qc.num_qubits:2d} {nccx:3d} {b:5d} {a:5d} "

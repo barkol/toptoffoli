@@ -86,7 +86,8 @@ def resetting_circuit(m: int = 3, n_letters: int = 7) -> QuantumCircuit:
 def run(qc):
     em = HardwareErrorModel(p2q=4.0e-3, p1q=2.0e-4)   # IonQ-Forte-like
     sel = ErrorBudgetSelector(error_model=em, phase_aware=True)
-    res = sel.select(qc)
+    from _clean import clean_ancillas
+    res = sel.select(qc, pinned_zero=clean_ancillas(qc))
     rep = res["report"]
     nccx = sum(1 for inst in qc.data if inst.operation.name == "ccx")
     b, af = rep["two_qubit_before"], rep["two_qubit_after"]

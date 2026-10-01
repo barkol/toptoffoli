@@ -142,6 +142,19 @@ def test_window_pairs_mirror_adder():
           f"structural {rep_c['sites_applied']}); H inside the window rejected")
 
 
+def test_mirror_gadget_on_clean_ancilla():
+    # Condition (R): a live AND written into a clean ancilla (pinned to |0>) gets
+    # the mirrored gadget, exact on the reachable subspace; unpinned it does not.
+    c = QuantumCircuit(3); c.h(0); c.ccx(0, 1, 2); c.cx(2, 1)
+    rep_p = ErrorBudgetSelector().select(c, pinned_zero=[2])["report"]
+    rep_f = ErrorBudgetSelector().select(c)["report"]
+    assert [d["gadget"] for d in rep_p["rphase_admitted"]] == ["relphase_m"], rep_p["rphase_admitted"]
+    assert rep_p["verified"] is True and rep_p["semantics"] == "subroutine"
+    assert not rep_f["rphase_admitted"]
+    print("[9] PASS: mirrored gadget admitted under (R) for an AND into a pinned clean ancilla, "
+          "certified on the input subspace; rejected when the ancilla is free")
+
+
 def test_pairs_remain_unitary_exact():
     c = QuantumCircuit(4); c.ccx(0, 1, 2); c.cx(2, 3); c.ccx(0, 1, 2)
     res = ErrorBudgetSelector().select(c)
@@ -159,5 +172,6 @@ if __name__ == "__main__":
     test_default_subroutine_semantics_never_uses_U()
     test_gate_level_states_not_used_as_circuit_inputs()
     test_window_pairs_mirror_adder()
+    test_mirror_gadget_on_clean_ancilla()
     test_pairs_remain_unitary_exact()
     print("\nAll superposition-soundness tests passed.")
