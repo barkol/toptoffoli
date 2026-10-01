@@ -124,12 +124,21 @@ def m_ours(circ: QuantumCircuit) -> QuantumCircuit:
 
 
 def m_count_greedy(circ: QuantumCircuit) -> QuantumCircuit:
-    """Count-greedy (QContext/Maslov-style) baseline: substitute the cheap
-    relative-phase gadget at EVERY Toffoli, with no context check, then lower to
-    {cx,u}. Aggressive but unsound -- scored with the same metric/verifier."""
-    from naive_relphase import naive_relphase
-    return transpile(naive_relphase(circ), basis_gates=["cx", "u"],
-                     optimization_level=3)
+    """Count-greedy baseline: the same 3-CX relative-phase gadget as the pass at
+    EVERY Toffoli, no context check, no post-optimisation. Identical gadget and
+    identical cost accounting as the pass, so the comparison isolates the
+    admissibility decision. Unsound in subroutine semantics."""
+    from toffoli_optimizer.core.decomposition_selector import (
+        ErrorBudgetSelector, append_relative_phase_ccx)
+    out = QuantumCircuit(circ.num_qubits)
+    for inst in circ.data:
+        qb = [circ.find_bit(q).index for q in inst.qubits]
+        if inst.operation.name.lower() == "ccx" or (inst.operation.name.lower() in ("mcx", "mcx_gray") and len(qb) == 3):
+            append_relative_phase_ccx(out, *qb)
+        else:
+            tmp = QuantumCircuit(circ.num_qubits); tmp.append(inst.operation, [tmp.qubits[i] for i in qb])
+            out.compose(ErrorBudgetSelector().decompose_exact_only(tmp), inplace=True)
+    return out
 
 
 # ----------------------------------------------------------------------------- run
