@@ -54,8 +54,21 @@ from .error_model import HardwareErrorModel
 from .context_analysis import find_relative_phase_safe_sites, RelativePhaseSite
 from .phase_observability import is_phase_unobservable, default_affected_qubits
 from .reachable_subspace import reachable_overapprox
+from .subspace_check import (
+    project_support, gadget_unitary, check_on_subspace, certify_on_input_subspace)
 
 _CCX_NAMES = {"ccx", "mcx", "mcx_gray"}
+
+def _ccx_matrix():
+    from qiskit.quantum_info import Operator
+    qc = QuantumCircuit(3)
+    qc.ccx(0, 1, 2)
+    return Operator(qc).data
+
+_U_CCX = _ccx_matrix()
+
+# Whole-circuit unitary certification is attempted up to this width.
+_CERT_MAX_QUBITS = 12
 
 
 # --------------------------------------------------------------------------- gadgets
@@ -285,26 +298,19 @@ class ErrorBudgetSelector:
                         "info": {"path": "phase_aware"}})
                     continue
 
-                # Gate 2: reachable-basis, phase-insensitive agreement.
-                # Build the candidate with this index added, and verify ONLY on the
-                # reachable basis (a sound over-approximation of reachable inputs).
-                candidate = dict(actions)
-                candidate[idx] = ("relphase",)
-                built = self._build(circuit, candidate)
-                reachable = reachable_overapprox(circuit, idx, input_space=input_space)
-                ok, _p, info = self.verifier.verify_on_reachable_basis(
-                    exact, built, reachable
-                )
-                if ok:
-                    actions = candidate
-                    phase_admitted.append({
-                        "index": idx, "qubits": qb,
-                        "reachable_inputs": len(reachable)})
-                else:
-                    rejected.append({
-                        "site": ("standalone", idx),
-                        "reason": info.get("reason"),
-                        "info": {"path": "phase_aware", **info}})
+                # Condition (U) of the paper: the forward-cone test above proves that
+                # W D W^dagger is diagonal (every later gate touching the phased qubits
+                # is a basis permutation), so the terminal computational-basis
+                # measurement cannot see D for ANY input state, superpositions
+                # included. No reachability argument is needed or used here.
+                # (Earlier versions additionally ran a basis-state-wise
+                # phase-insensitive check, which is blind to relative phases and was
+                # applied with gate-level reachable states as circuit inputs; it is
+                # removed because it neither adds nor justifies soundness.)
+                actions = dict(actions)
+                actions[idx] = ("relphase",)
+                phase_admitted.append({
+                    "index": idx, "qubits": qb, "condition": "U"})
 
         # ---- NEW PATH: bounded-approximate-on-the-reachable-subspace -------------
         # For each still-exact standalone CCX, try the CONTROL-DROP specialisations
@@ -323,6 +329,7 @@ class ErrorBudgetSelector:
         # as sound on the reachable subspace. Indices locked into a compute/uncompute
         # PAIR (``paired_idx``) are never touched: their gadgets cancel only as a pair.
         approx_admitted: List[dict] = []
+        perturbed_targets: set = set()
         epsilon_per_index: dict = {}
         em = self.error_model
         for idx, inst in enumerate(circuit.data):
@@ -334,19 +341,29 @@ class ErrorBudgetSelector:
                 continue
             a, b, t = qb
 
-            reachable = reachable_overapprox(circuit, idx, input_space=input_space)
+            # Reachable support at g, computed in the CURRENT circuit: a gate already
+            # replaced by an approximate (deviation > 0) specialisation may have
+            # changed the support of its target, which we model soundly by an H on
+            # that target (free value) in the circuit used for reachability.
+            reach_circ, idx_map = self._reach_circuit(circuit, perturbed_targets)
+            reachable = reachable_overapprox(reach_circ, idx_map[idx], input_space=input_space)
+            local = project_support(reachable, (a, b, t))
             base_inf = em.circuit_infidelity(self._build(circuit, actions))
 
             best = None  # (margin, candidate_actions, descriptor)
             for keep in ((), (a,), (b,)):
+                local_keep = tuple({a: 0, b: 1}[k] for k in keep)
+                U_d = gadget_unitary(
+                    lambda qc, x, y, z, lk=local_keep: append_control_drop(qc, x, y, z, lk))
+                # Condition (R) / its bounded-approximate variant: one phase on the
+                # reachable SUBSPACE, operator norm (never basis-state-wise).
+                admissible, max_dev, vinfo = check_on_subspace(
+                    U_d, _U_CCX, local, self.epsilon)
+                if not admissible:
+                    continue
                 cand_actions = dict(actions)
                 cand_actions[idx] = ("control_drop", keep)
                 built = self._build(circuit, cand_actions)
-                admissible, max_dev, vinfo = (
-                    self.verifier.verify_on_reachable_basis_approx(
-                        exact, built, self.epsilon, reachable))
-                if not admissible:
-                    continue
                 # Budget test: infidelity SAVED by this candidate vs the current
                 # selection must exceed the epsilon SPENT (= max_dev charged in).
                 cand_inf = em.circuit_infidelity(built)
@@ -355,14 +372,18 @@ class ErrorBudgetSelector:
                 if margin > 0 and (best is None or margin > best[0]):
                     best = (margin, cand_actions, {
                         "index": idx, "qubits": qb, "keep": list(keep),
+                        "condition": "R" if max_dev == 0.0 else "R-eps",
                         "max_deviation": max_dev,
                         "infidelity_saved": saved,
-                        "reachable_inputs": len(reachable)})
+                        "reachable_inputs": len(reachable),
+                        "reachable_local": len(local)})
 
             if best is not None:
                 actions = best[1]
                 approx_admitted.append(best[2])
                 epsilon_per_index[idx] = best[2]["max_deviation"]
+                if best[2]["max_deviation"] > 0.0:
+                    perturbed_targets.add((idx, t))
             elif self.epsilon > 0.0:
                 rejected.append({
                     "site": ("approx", idx),
@@ -401,23 +422,34 @@ class ErrorBudgetSelector:
         # on.) Using ``reachable_overapprox`` at gate index 0 yields a sound superset
         # of that domain.
         cert_inputs = reachable_overapprox(circuit, 0, input_space=input_space)
-        if approx_admitted:
-            verified, max_dev, vinfo = (
-                self.verifier.verify_on_reachable_basis_approx(
-                    exact, selected, self.epsilon, cert_inputs))
-            verified = bool(verified)
-            perm = None
-            vinfo = {**vinfo, "certification": "reachable_basis_approx"}
-        elif phase_admitted:
-            verified, perm, vinfo = self.verifier.verify_on_reachable_basis(
-                exact, selected, cert_inputs
-            )
-            vinfo = {**vinfo, "certification": "reachable_basis_phase_insensitive"}
-        else:
+        # Semantics actually guaranteed: subroutine equivalence (one global phase on
+        # the whole input subspace) unless some substitution relied on condition (U),
+        # in which case observational equivalence (terminal basis measurement).
+        semantics = "observational" if phase_admitted else "subroutine"
+        if not (approx_admitted or phase_admitted):
             verified, perm, vinfo = self.verifier.verify(
                 exact, selected, allow_permutation=self.allow_permutation
             )
             vinfo = {**vinfo, "certification": "exact_unitary"}
+        elif max(exact.num_qubits, selected.num_qubits) <= _CERT_MAX_QUBITS \
+                and selected.num_qubits == exact.num_qubits:
+            from qiskit.quantum_info import Operator
+            U_ex = Operator(exact).data
+            U_sel = Operator(selected).data
+            verified, cert_dev, vinfo = certify_on_input_subspace(
+                U_ex, U_sel, cert_inputs, mode=semantics,
+                tolerance=epsilon_spent_total)
+            verified = bool(verified)
+            perm = None
+            vinfo = {**vinfo, "certification": f"input_subspace_{semantics}",
+                     "certified_deviation": cert_dev}
+        else:
+            # Too wide for a whole-circuit unitary: soundness rests on the per-gate
+            # conditions (C)/(R)/(U) of the soundness theorem. Reported as such and
+            # NOT as a machine-checked whole-circuit certificate.
+            verified, perm = None, None
+            vinfo = {"certification": "per_gate_conditions_only",
+                     "reason": "circuit too wide for whole-circuit unitary check"}
 
         # The certified error budget includes the epsilon spent on approximate
         # admissions: the on-hardware infidelity of the cheaper circuit PLUS the
@@ -439,11 +471,36 @@ class ErrorBudgetSelector:
             infidelity_before=em.circuit_infidelity(exact),
             infidelity_after=em.circuit_infidelity(selected),
             certified_error_budget=certified_budget,
-            verified=bool(verified),
+            verified=verified if verified is None else bool(verified),
+            semantics=semantics,
             verify_info=vinfo,
             output_permutation=perm,
         )
         return {"circuit": selected, "report": report}
+
+    # ------------------------------------------------------------- reachability
+    @staticmethod
+    def _reach_circuit(circuit: QuantumCircuit, perturbed_targets):
+        """Circuit used for reachability, plus an index map original -> new.
+
+        After an approximate (deviation > 0) specialisation at gate i with target t,
+        the value of t after i is no longer the CCX value. We model this soundly by
+        inserting an H on t right after i: the over-approximation then treats t (and
+        everything it later influences) as free.
+        """
+        if not perturbed_targets:
+            return circuit, list(range(len(circuit.data)))
+        after = {}
+        for i, t in perturbed_targets:
+            after.setdefault(i, []).append(t)
+        out = QuantumCircuit(*circuit.qregs, *circuit.cregs)
+        idx_map = []
+        for i, inst in enumerate(circuit.data):
+            idx_map.append(len(out.data))
+            out.append(inst.operation, inst.qubits, inst.clbits)
+            for t in after.get(i, []):
+                out.h(out.qubits[t])
+        return out, idx_map
 
     # ------------------------------------------------------------------ builders
     def _build(self, circuit: QuantumCircuit, actions: dict) -> QuantumCircuit:
