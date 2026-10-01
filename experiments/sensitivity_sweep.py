@@ -80,8 +80,8 @@ DEVICES = [
            "CZ 0.33%, 1q 0.035% simultaneous (Nature 2024)"),
     # Quantinuum H2 (System Model H2): 2q 99.87% -> 1.3e-3; 1q 99.997% -> 3e-5
     # (Quantinuum, 2024). All-to-all connectivity.
-    Device("quantinuum_h2", "Quantinuum H2", 1.4e-3, 2.0e-5,
-           "2q ~1.4e-3; 1q ~2e-5 -> r~70 (arXiv:2404.02280, 2024)"),
+    Device("quantinuum_h2", "Quantinuum H2", 1.4e-3, 3.0e-5,
+           "2q ~1.4e-3 (arXiv:2404.02280); 1q 99.997% -> 3e-5 (Quantinuum H2 spec, 2024) -> r~47"),
     # IonQ Forte: 2q 99.6% -> 4e-3; 1q 99.98% -> 2e-4 (IonQ Forte spec).
     Device("ionq_forte", "IonQ Forte", 4.0e-3, 2.0e-4,
            "2q 99.6% -> 4e-3; 1q 99.98% -> 2e-4 (IonQ Forte spec)"),
