@@ -121,8 +121,8 @@ def _analysis():
   (exact-on-reachable) control-drop, not from any eps > 0 tolerance. On
   `guard_chain`, every guard-controlled Toffoli has a control provably |0> on the
   restricted reachable subspace, so dropping it to identity is EXACT (deviation 0).
-  That halves the two-qubit count again on top of relative-phase (e.g. k=3: exact 36
-  -> relphase 18 -> +approx 9), and it certifies.
+  That halves the two-qubit count (e.g. k=3: exact 36 -> control-drop 18; the
+  guard chain has no relative-phase pair), and it certifies.
 
 * eps > 0 added NOTHING on these benchmarks: the rows for eps = 0, 0.1, and
   ~sqrt(2) are identical, and `eps spent` is 0.0 everywhere. This is not a tuning

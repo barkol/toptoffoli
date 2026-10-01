@@ -121,16 +121,19 @@ def _count_ccx(qc: QuantumCircuit) -> int:
 def _mix_from_report(qc: QuantumCircuit, report) -> dict:
     """Decode the selected decomposition mix from a SelectionReport.
 
-    relphase_total = (#Toffolis lowered with the 3-CX Margolus gadget) =
-        2 * (#applied compute/uncompute SITES)  +  (#phase-aware standalone admits).
-    exact = total CCX - relphase_total.
+    relphase_total = (#Toffolis lowered with a 3-CX gadget) =
+        2 * (#pairs under (C) and (W)) + (#standalone gadgets under (R) or (U)).
+    Control drops under (R) are counted separately as ``drops``.
+    exact = total CCX - relphase_total - drops.
     """
     total = _count_ccx(qc)
-    pairs = report["sites_applied"]              # each site = one (compute,uncompute) PAIR
-    standalone = len(report["phase_aware_admitted"])
+    pairs = report["sites_applied"] + len(report.get("window_pairs_admitted", []))
+    standalone = len(report["phase_aware_admitted"]) + len(report.get("rphase_admitted", []))
+    drops = len(report.get("approx_admitted", []))
     relphase = 2 * pairs + standalone
-    exact = total - relphase
+    exact = total - relphase - drops
     return {
+        "drops": drops,
         "ccx_total": total,
         "relphase": relphase,
         "relphase_pairs": 2 * pairs,

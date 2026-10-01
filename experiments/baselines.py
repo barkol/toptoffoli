@@ -305,8 +305,8 @@ def main():
     print("cross-checks:")
     print(f"  exact_only: 2q={agg['exact_only']['twoq']} (expected 281), "
           f"infid={agg['exact_only']['infid']:.2f} (expected 2.74)")
-    print(f"  ours:       2q={agg['ours']['twoq']} (expected 221), "
-          f"infid={agg['ours']['infid']:.2f} (expected 2.19)")
+    print(f"  ours:       2q={agg['ours']['twoq']} (paper: 194), "
+          f"infid={agg['ours']['infid']:.2f} (paper: 1.97)")
     print()
 
     print("ours (gated) vs each baseline:")
