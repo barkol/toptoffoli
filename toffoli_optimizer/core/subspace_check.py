@@ -134,8 +134,20 @@ def certify_on_input_subspace(
     A = U_sel[:, cols]
     B = U_ex[:, cols]
     if mode == "subroutine":
-        dev, th = _min_scalar_phase_opnorm(A, B)
-        info = {"theta": th}
+        # Exact decision (tolerance 0) with one SVD. B has orthonormal columns, so if
+        # A = e^{i th} B + E with ||E|| <= d, the trace phase th0 = arg tr(B^H A)
+        # gives ||A - e^{i th0} B|| <= 2 d. Hence the value at th0 is within a
+        # factor 2 of the minimum: certify if it is <= atol, reject if > 2 atol, and
+        # run the full minimisation only in between (and for tolerance > 0).
+        tr = np.trace(B.conj().T @ A)
+        th0 = float(np.angle(tr)) if abs(tr) > 1e-15 else 0.0
+        dev0 = float(np.linalg.norm(A - np.exp(1j * th0) * B, 2))
+        if tolerance == 0.0 and (dev0 <= atol or dev0 > 2 * atol):
+            dev, th = dev0, th0
+            info = {"theta": th, "phase": "trace"}
+        else:
+            dev, th = _min_scalar_phase_opnorm(A, B)
+            info = {"theta": th}
     elif mode == "observational":
         # Best phase per output row: phi_y = arg <B_y, A_y>.
         inner = np.einsum("ij,ij->i", B.conj(), A)
