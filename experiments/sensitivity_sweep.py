@@ -83,8 +83,8 @@ DEVICES = [
     Device("quantinuum_h2", "Quantinuum H2", 1.4e-3, 3.0e-5,
            "2q ~1.4e-3 (arXiv:2404.02280); 1q 99.997% -> 3e-5 (Quantinuum H2 spec, 2024) -> r~47"),
     # IonQ Forte: 2q 99.6% -> 4e-3; 1q 99.98% -> 2e-4 (IonQ Forte spec).
-    Device("ionq_forte", "IonQ Forte", 4.0e-3, 2.0e-4,
-           "2q 99.6% -> 4e-3; 1q 99.98% -> 2e-4 (IonQ Forte spec)"),
+    Device("ionq_forte", "IonQ Forte", 4.6e-3, 2.0e-4,
+           "2q median 4.6e-3 (DRB, Chen et al., Quantum 8, 1516, 2024); 1q 2.0e-4"),
     # IonQ Aria: 2q 99.6% -> 4e-3; 1q 99.95% -> 5e-4 (IonQ Aria spec).
     Device("ionq_aria", "IonQ Aria", 4.0e-3, 5.0e-4,
            "2q 99.6% -> 4e-3; 1q 99.95% -> 5e-4 (IonQ Aria spec)"),
