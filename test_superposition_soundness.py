@@ -64,7 +64,7 @@ def test_editor_circuit_through_pipeline_is_exact_and_certified():
 def test_fig1b_control_interference_rejected_and_forced_gadget_detected():
     # Fig. 1(b) of the revised paper: H on control q0 after g.
     c = QuantumCircuit(3); c.ccx(0, 1, 2); c.h(0)
-    res = ErrorBudgetSelector().select(c)
+    res = ErrorBudgetSelector(semantics="program").select(c)
     rep = res["report"]
     assert not rep["phase_aware_admitted"]
     # Forcing the gadget is observably wrong on a superposed data input ...
@@ -96,6 +96,20 @@ def test_control_drop_rejected_when_control_in_superposition():
           "superposed control kept; output certified on the input subspace")
 
 
+def test_default_subroutine_semantics_never_uses_U():
+    # A lone, measured Toffoli: (U) would admit the gadget in "program" semantics,
+    # but the default "subroutine" semantics must keep it exact (unitary changes).
+    c = QuantumCircuit(3); c.ccx(0, 1, 2)
+    rep = ErrorBudgetSelector().select(c)["report"]
+    assert not rep["phase_aware_admitted"] and rep["semantics"] == "subroutine"
+    assert rep["verified"] is True
+    rep_p = ErrorBudgetSelector(semantics="program").select(c)["report"]
+    assert rep_p["phase_aware_admitted"] and rep_p["semantics"] == "observational"
+    assert rep_p["verified"] is True
+    print("[6] PASS: default subroutine semantics keeps a lone Toffoli exact; "
+          "program semantics admits it under (U), certified observationally")
+
+
 def test_pairs_remain_unitary_exact():
     c = QuantumCircuit(4); c.ccx(0, 1, 2); c.cx(2, 3); c.ccx(0, 1, 2)
     res = ErrorBudgetSelector().select(c)
@@ -110,5 +124,6 @@ if __name__ == "__main__":
     test_editor_circuit_through_pipeline_is_exact_and_certified()
     test_fig1b_control_interference_rejected_and_forced_gadget_detected()
     test_control_drop_rejected_when_control_in_superposition()
+    test_default_subroutine_semantics_never_uses_U()
     test_pairs_remain_unitary_exact()
     print("\nAll superposition-soundness tests passed.")

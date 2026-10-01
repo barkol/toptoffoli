@@ -109,7 +109,7 @@ def test_A_unobservable_standalone_admitted():
     )
 
     # NEW (phase-aware) path: admits the standalone substitution.
-    sel = ErrorBudgetSelector(phase_aware=True)
+    sel = ErrorBudgetSelector(phase_aware=True, semantics="program")
     out = sel.select(qc)
     rep = out["report"]
     print("[A] " + rep.summary())
@@ -173,7 +173,7 @@ def test_B_observable_phase_rejected_soundness_guard():
         "downstream Hadamard on a phase-carrying qubit must be flagged observable"
     )
 
-    sel = ErrorBudgetSelector(phase_aware=True)
+    sel = ErrorBudgetSelector(phase_aware=True, semantics="program")
     out = sel.select(qc)
     rep = out["report"]
     print("[B] " + rep.summary())
@@ -216,7 +216,7 @@ def test_C_regression_pairs_still_work():
     sites = find_relative_phase_safe_sites(qc)
     assert len(sites) == 1, f"the compute/uncompute pair must still be detected: {sites}"
 
-    sel = ErrorBudgetSelector(phase_aware=True)
+    sel = ErrorBudgetSelector(phase_aware=True, semantics="program")
     out = sel.select(qc)
     rep = out["report"]
     print("[C] " + rep.summary())

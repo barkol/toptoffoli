@@ -186,6 +186,7 @@ class ErrorBudgetSelector:
         allow_permutation: bool = False,
         phase_aware: bool = True,
         epsilon: float = 0.0,
+        semantics: str = "subroutine",
     ):
         self.error_model = error_model or HardwareErrorModel()
         self.verifier = verifier or ExactEquivalenceVerifier()
@@ -194,6 +195,18 @@ class ErrorBudgetSelector:
         # is provably UNOBSERVABLE on the reachable subspace (the new, more permissive
         # path), in addition to the exact-unitary compute/uncompute-pair path.
         self.phase_aware = phase_aware
+        # SEMANTICS of correctness the output must satisfy.
+        #  * "subroutine" (default): the emitted circuit equals the exact one as an
+        #    operator on the input subspace up to ONE global phase, so it can be used
+        #    coherently inside a larger algorithm (adders, oracles). Only conditions
+        #    (C) compute/uncompute pairs and (R) exact-on-reachable-subspace are used.
+        #  * "program": the circuit is a complete program ending in a
+        #    computational-basis measurement. Additionally admits condition (U):
+        #    standalone relative-phase gadgets whose phase the terminal measurement
+        #    cannot see. NOT valid for subroutines (it changes the unitary).
+        if semantics not in ("subroutine", "program"):
+            raise ValueError(f"semantics must be 'subroutine' or 'program', got {semantics!r}")
+        self.semantics = semantics
         # BOUNDED-APPROXIMATE-ON-REACHABLE knob. epsilon == 0.0 admits only candidates
         # that agree with CCX EXACTLY on the reachable subspace (e.g. a provably
         # constant control). epsilon > 0.0 additionally admits a cheaper
@@ -280,7 +293,7 @@ class ErrorBudgetSelector:
             paired_idx.add(s.uncompute_idx)
 
         phase_admitted: List[dict] = []
-        if self.phase_aware:
+        if self.phase_aware and self.semantics == "program":
             for idx, inst in enumerate(circuit.data):
                 if idx in actions or idx in paired_idx:
                     continue
