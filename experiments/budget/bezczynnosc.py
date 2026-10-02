@@ -1,0 +1,62 @@
+"""Model bledow bezczynnosci dla obwodow ISA: szeregowanie ALAP z czasami bramek urzadzenia
+(bariera synchronizuje swoje kubity, pomiar konczy kubit). Dla kubitu q czas bezczynnosci
+tau_q = (start pomiaru) - (start pierwszej bramki ALAP) - (czas zajety). Kanal skrecony do Pauliego:
+p_x = p_y = (1-exp(-tau/T1))/4, p_z = (1-exp(-tau/T2))/2 - (1-exp(-tau/T1))/4, f_q = 1-p_x-p_y-p_z.
+Przed pierwsza bramka kubit jest w |0> i nie traci koherencji, wiec tego okresu nie liczymy."""
+import math
+
+
+def durations_from_target(target):
+    def d(name, qs):
+        if name in ("rz", "barrier", "delay"): return 0.0
+        try:
+            p = target[name].get(tuple(qs)) or target[name].get(tuple(qs[::-1]))
+            return p.duration or 0.0
+        except KeyError:
+            raise RuntimeError(f"brak czasu {name}{qs}")
+    return d
+
+
+def idle_times(c, dur):
+    """ALAP: odwracamy liste instrukcji, liczymy ASAP od konca."""
+    n = c.num_qubits; ops = []
+    for ins in c.data:
+        qs = [c.find_bit(q).index for q in ins.qubits]; ops.append((ins.operation.name, qs))
+    # ASAP na odwroconej liscie = ALAP; pomiary maja byc na koncu -> w odwroconej liscie na poczatku
+    cur = [0.0] * n; busy = [0.0] * n; first = [None] * n; last_meas = [None] * n
+    for name, qs in reversed(ops):
+        if name == "barrier":
+            t = max(cur[q] for q in qs)
+            for q in qs: cur[q] = t
+            continue
+        t0 = max(cur[q] for q in qs); dt = dur(name, qs)
+        for q in qs:
+            cur[q] = t0 + dt
+            if name == "measure":
+                last_meas[q] = t0 + dt   # koniec pomiaru w odwroconym czasie
+            elif dt > 0:
+                busy[q] += dt; first[q] = t0 + dt   # najdalsza (w czasie wstecz) bramka = pierwsza w czasie
+    tau = {}
+    for q in range(n):
+        if first[q] is None or last_meas[q] is None: continue
+        tau[q] = max(0.0, first[q] - last_meas[q] - busy[q])
+    return tau
+
+
+def idle_fidelity(tau, T1, T2):
+    f = 1.0
+    for q, t in tau.items():
+        a = 1 - math.exp(-t / T1[q]); b = 1 - math.exp(-t / T2[q])
+        px = py = a / 4; pz = max(0.0, b / 2 - a / 4)
+        f *= 1 - px - py - pz
+    return f
+
+
+def t1t2_from_props(P):
+    T1, T2 = {}, {}
+    for q, ps in enumerate(P["qubits"]):
+        for p in ps:
+            u = 1e-6 if p.get("unit") == "us" else (1e-9 if p.get("unit") == "ns" else 1.0)
+            if p["name"] == "T1": T1[q] = p["value"] * u
+            if p["name"] == "T2": T2[q] = p["value"] * u
+    return T1, T2
