@@ -13,16 +13,17 @@ swap), then the prefix is a permutation ``pi`` of the 2^n computational basis. A
 computational-basis input ``x`` maps to the single basis state ``pi(x)`` at the
 gate -- no superposition is created. So the *reachable set* at the gate is exactly
 ``{ pi(x) : x in input_space }``, a finite set of basis indices. Enumerating it is
-the exact reachable subspace (restricted to the basis), and admissibility checks
-that range over this set are over the true reachable inputs.
+the exact reachable set, and the reachable SUBSPACE is its span (superpositions
+of reachable basis states included).
 
 If the prefix contains a superposition-creating gate (h / ry / t / ...), a single
 basis input can spread over many basis states. We then fall back to a SOUND
 OVER-APPROXIMATION: the set of basis states whose amplitude *could* be nonzero is a
-superset of the truly-reachable basis states. Checking an admissibility predicate
-on a SUPERSET is sound for accepting a rewrite: if the predicate holds for every
-state in the superset, it holds for every truly-reachable state a fortiori. (It can
-only make us reject -- never wrongly accept -- a substitution.)
+superset of the truly-reachable basis states. The admissibility conditions are
+OPERATOR identities on the span of the set with one phase (``subspace_check``); an
+identity  U_d P_S = e^{i theta} U P_S  on span(S) restricts to the same identity on
+span(R) for any R contained in S. So checking on a superset is sound for accepting a
+rewrite: it can only make us reject -- never wrongly accept -- a substitution.
 
 Two entry points:
 
@@ -194,15 +195,17 @@ def reachable_overapprox(
     the exact enumeration is impossible (a superposition-creating prefix gate) or too
     large.
 
-    SOUNDNESS OF OVER-APPROXIMATION.  Admissibility of a substitution is a predicate
-    we require to hold for *every reachable input*. If ``R`` is the true reachable set
-    and ``S ⊇ R`` is our over-approximation, then
+    SOUNDNESS OF OVER-APPROXIMATION.  Admissibility of a substitution is an OPERATOR
+    identity on the span of the reachable basis states with ONE phase for the whole
+    subspace (condition (R), ``subspace_check.check_on_subspace``), not a predicate
+    checked basis state by basis state. If ``R`` is the true reachable set and
+    ``S ⊇ R`` is our over-approximation, then span(R) ⊆ span(S) and
 
-        ( predicate holds for all s in S )  =>  ( predicate holds for all r in R ).
+        U_d P_S = e^{i theta} U P_S   =>   U_d P_R = e^{i theta} U P_R
 
-    So verifying on the superset can only cause us to *reject* a valid substitution
-    (when some unreachable s in S \\ R fails) -- never to *accept* an invalid one.
-    Hence any superset is sound for admissibility. We return the SMALLEST cheap
+    (restrict both sides to the smaller subspace; the phase stays the same). So
+    checking on the superset can only cause us to *reject* a valid substitution --
+    never to *accept* an invalid one. Hence any superset is sound for admissibility. We return the SMALLEST cheap
     superset we can justify:
 
     * If the prefix up to ``gate_index`` is classical-reversible, delegate to the

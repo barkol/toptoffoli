@@ -4,13 +4,14 @@ minus czesc relaksacyjna) + relaksacja T1/T2 w czasie bramki; w przerwach relaks
 ZZ koherentny: faza 2*pi*zeta*dt na |11> dla sprzezonych par aktywnych, w odcinkach czasu;
 opcjonalnie nadmiarowy blad lam na CZ (depolaryzacja 2q). Pomiar: bledy odczytu P(0|1), P(1|0).
 Uzycie: symulacja.py [idx ...] [--bez-zz] [--zz-twirl] [--lam X]"""
-import json, math, pickle, sys
+import json, math, os, pickle, sys
 import numpy as np
 from qiskit import QuantumCircuit, qpy
 from qiskit.circuit.library import UnitaryGate
 from qiskit_aer import AerSimulator
 from qiskit_aer.noise import depolarizing_error, thermal_relaxation_error, pauli_error
-B = "/tmp/art-kompilator-stage/budzet_20261002/"
+HERE = os.path.dirname(os.path.abspath(__file__))
+B = os.path.join(HERE, "..") + os.sep  # experiments/budget: kal_ibm_marrakesh.pkl, marrakesh_props_jobtime.pkl, lustro_isa.qpy
 K = pickle.load(open(B + "kal_ibm_marrakesh.pkl", "rb")); P = pickle.load(open(B + "marrakesh_props_jobtime.pkl", "rb"))
 T = K["target"]; circs = qpy.load(open(B + "lustro_isa.qpy", "rb"))
 qp = {q: {p["name"]: p["value"] for p in ps} for q, ps in enumerate(P["qubits"])}
@@ -140,11 +141,11 @@ if __name__ == "__main__":
     if "--lam" in args: lam = float(args[args.index("--lam") + 1])
     ids = [int(a) for a in args if a.isdigit()] or list(range(15))
     kw = dict(with_zz="--bez-zz" not in args, zz_twirl="--zz-twirl" in args, lam=lam)
-    W = json.load(open("/tmp/art-kompilator-stage/wersja-v3_20261001/tables/data/lustro_hw.json"))
+    W = json.load(open(os.path.join(HERE, "..", "..", "fixtures", "mirror_test", "wyniki_hw.json")))  # = paper/tables/data/lustro_hw.json
     out = []
     for k in ids:
         p0, marg, na = p0_and_marginals(circs[k], **kw)
         r = W["rows"][k]; out.append(dict(k=k, name=r["name"], tag=r["tag"], hw=r["p0_hw"], sim=p0, marg=marg, n_active=na))
         print(f"{r['name'][:20]:20s} {r['tag']:6s} aktywnych={na:2d} hw={r['p0_hw']:.3f} sim={p0:.3f}  marg=" + " ".join(f"{m:.2f}" for m in marg), flush=True)
     tag = ("zz_twirl" if kw["zz_twirl"] else ("zz" if kw["with_zz"] else "bez_zz")) + (f"_lam{lam}" if lam else "")
-    json.dump(out, open(f"sym_{tag}.json", "w"), indent=1)
+    json.dump(out, open(os.path.join(HERE, f"sym_{tag}.json"), "w"), indent=1)

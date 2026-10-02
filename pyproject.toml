@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toffoli-optimizer"
-version = "1.2.0"
-description = "Context-verified, error-budget-aware decomposition selection for Toffoli networks."
+version = "1.2.1"
+description = "Certified context-dependent Toffoli decompositions: fewer two-qubit gates with subroutine guarantees."
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Karol Bartkiewicz", email = "karol.bartkiewicz@amu.edu.pl" },
     { name = "Patrycja Tulewicz" },
@@ -27,24 +27,26 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
-    "qiskit>=1.2",
-    "numpy>=1.19",
-    "matplotlib>=3.3",
+    "qiskit>=2.4",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
 ]
 
 [project.optional-dependencies]
 experiments = [
-    "qiskit-aer>=0.13",
-    "pytket>=1.30",
-    "pytket-qiskit>=0.50",
-    "mqt.qcec>=2.5",
+    "qiskit-aer>=0.17",
+    "pytket>=2.18",
+    "pytket-qiskit>=0.77",
+    # The certificates pass run_zx_checker, elide_permutations and
+    # trace_threshold and fail closed if they are not accepted. Minimum = versions used for the paper.
+    "mqt.qcec>=3.6.1",
+    "scipy>=1.10",
 ]
 dev = [
     "pytest>=7",

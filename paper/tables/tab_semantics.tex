@@ -1,0 +1,25 @@
+\begin{table}[t]
+\centering\small
+\caption{The two correctness semantics on the $12$-circuit suite. Columns give the
+summed two-qubit count and infidelity, the number of circuits whose
+action as a subroutine changes (Sub.), the number whose measurement
+statistics change for some valid input state (Prog.), and the same two
+counts on three interference circuits (Interf., Sub.\,/\,Prog.): the
+counterexample of \S\ref{sec:soundness} and the circuit of
+Fig.~\ref{fig:method}(b) with a data target and with a clean-ancilla target.
+Qiskit and tket outputs pass the same certificate on every circuit.}
+\label{tab:semantics}
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrccc}
+\toprule
+Method & 2q & Infid. & Sub. & Prog. & Interf. \\
+\midrule
+Exact only & $281$ & $2.74$ & $0$ & $0$ & 0 / 0 \\
+Qiskit opt-3 & $281$ & $2.69$ & $0$ & $0$ & -- \\
+tket & $279$ & $2.66$ & $0$ & $0$ & -- \\
+Count-greedy & $167$ & $1.70$ & $6$ & $0$ & 3 / 3 \\
+This work, subroutine & $194$ & $1.97$ & $0$ & $0$ & 0 / 0 \\
+This work, program & $167$ & $1.70$ & $5$ & $0$ & 0 / 0 \\
+\bottomrule
+\end{tabular}
+\end{table}

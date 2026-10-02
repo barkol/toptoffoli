@@ -250,12 +250,14 @@ class ExactEquivalenceVerifier:
         state on the data wires -- PHASE-INSENSITIVELY -- and that any ancilla
         (the extra high-index qubits of ``rewritten``) returns to |0>.
 
-        This is the equivalence used together with
-        :func:`phase_observability.is_phase_unobservable`: the rewritten circuit may
-        differ from the original by a RELATIVE PHASE (so it would fail the exact
-        unitary check), yet still agree on the Boolean output state for every
-        reachable input. When the phase is independently proven unobservable, this
-        phase-insensitive agreement is exactly the soundness condition.
+        NOT AN ADMISSIBILITY CRITERION. A per-basis-state, phase-insensitive check
+        is blind to relative phases between different basis inputs, which become
+        observable when the circuit is fed a superposition of them (counterexample:
+        controls = 1, H on the target before and after a CCX replaced by RCCX). The
+        certified pass (:class:`decomposition_selector.ErrorBudgetSelector`) no longer
+        calls this method; it uses the operator conditions of
+        :mod:`subspace_check` (one phase on the whole subspace). The method is kept
+        as a diagnostic for Boolean (classical) agreement on basis inputs only.
 
         Requirements / scope (kept conservative):
           * Both circuits are evaluated on each basis input by statevector
@@ -390,6 +392,9 @@ class ExactEquivalenceVerifier:
         ``epsilon == 0`` this recovers exact-on-reachable agreement (up to global
         phase) per input -- i.e. it is the quantitative refinement of
         :meth:`verify_on_reachable_basis`.
+        Like that method it is a per-input diagnostic, not the admission test of the
+        certified pass (which uses ``subspace_check.check_on_subspace``, an operator
+        norm on the reachable subspace with one phase).
 
         The per-input phase-insensitive distance is computed in closed form. For two
         unit-norm vectors u (= U_d|x>, restricted to the ancilla=|0> data block) and

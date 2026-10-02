@@ -1,8 +1,11 @@
 # Diagnostic of the controlled-adder residual (mirror test)
 
 Record of the analysis behind the controlled-adder paragraph of the paper (2026-10-02).
-The scripts are kept as run; they refer to the working directory of that session
-(`/tmp/art-kompilator-stage/...`). All inputs and outputs they used are stored here:
+The scripts are kept as run, except that every path is now relative to the script file
+(they used to point at the working directory of that session). `diag.py` imports the
+mirror-test driver `../../mirror_test_ibm.py`; `symulacja.py` and `hipotezy.py` read the
+hardware results `../../fixtures/mirror_test/wyniki_hw.json` (identical to
+`paper/tables/data/lustro_hw.json`). All inputs and outputs they used are stored here:
 
 - `counts_all.json` — counts of the 15 mirror circuits (job davcn5o4oijs73e7b5m0, 2026-10-01);
 - `counts.json`, `job.json`, `props_wysylka.pkl`, `analiza.json` — follow-up job davpkglj371s73dnb7hg

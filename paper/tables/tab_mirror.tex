@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering\small
+\caption{Mirror test on \texttt{ibm\_marrakesh}: probability of returning to
+$\ket{0\cdots0}$ after $H_d V^\dagger E H_d$ ($4000$ shots per circuit, standard error
+$\le0.008$). Ref.: $V=E$. Ideal values in parentheses;
+they equal $1$ for the reference and for the pass on every circuit.}
+\label{tab:mirror}
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lccc}
+\toprule
+Circuit & Ref. & This work & Count-greedy \\
+\midrule
+Half-uncomputed & $0.811$ & $0.829$ & $0.251$ ($0.25$) \\
+Live AND chain & $0.737$ & $0.720$ & $0.291$ ($0.39$) \\
+Single live Toffoli & $0.937$ & $0.921$ & $0.515$ ($0.56$) \\
+Controlled adder (2b) & $0.149$ & $0.308$ & $0.134$ ($0.32$) \\
+Nested comp./unc. & $0.474$ & $0.522$ & $0.537$ ($1.00$) \\
+\bottomrule
+\end{tabular}
+\end{table}

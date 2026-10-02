@@ -10,7 +10,7 @@ with a focus on minimizing circuit depth while respecting hardware connectivity 
 from .decomposition_selector import ErrorBudgetSelector  # noqa: F401
 from .error_model import HardwareErrorModel  # noqa: F401
 
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 __author__ = 'Karol Bartkiewicz and Patrycja Tulewicz'
 
 # Deprecated legacy API (v1.0): lazy, with a DeprecationWarning.

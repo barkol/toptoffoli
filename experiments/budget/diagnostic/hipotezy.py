@@ -1,8 +1,9 @@
 """Test hipotez rozbieznosci (wszystkie 15 obwodow): (A) gorszy q16 (T2, T1), (B) koherentny blad fazy CZ,
 (C) jednorodna nadmiarowa depolaryzacja CZ. Miara: suma kwadratow ln(hw/sim) oraz reszta dla sumatora."""
-import json, math, sys
+import json, math, os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import symulacja as S
-W = json.load(open("/tmp/art-kompilator-stage/wersja-v3_20261001/tables/data/lustro_hw.json"))["rows"]
+W = json.load(open(os.path.join(S.HERE, "..", "..", "fixtures", "mirror_test", "wyniki_hw.json")))["rows"]  # = paper/tables/data/lustro_hw.json
 def run(label, **kw):
     res = []
     for k in range(15):
@@ -21,4 +22,4 @@ for d in (0.02, 0.05, 0.08, 0.12):
     R.append(run(f"faza CZ {d}", cz_phase=d))
 for lam in (0.002, 0.004):
     R.append(run(f"lam {lam}", lam=lam))
-json.dump(R, open("hipotezy.json", "w"), indent=1)
+json.dump(R, open(os.path.join(S.HERE, "hipotezy.json"), "w"), indent=1)

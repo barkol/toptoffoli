@@ -28,12 +28,12 @@ that real hardware. Device numbers + citations live in ``DEVICES`` below and are
 reproduced (with sources/dates) in ``sensitivity_results.md``.
 
 Run:
-    source ~/anaconda3/bin/activate ml
+    (in a Python environment with the requirements of pyproject.toml)
     pip install -e ".[experiments]"
     python experiments/sensitivity_sweep.py
 
 Outputs:
-    experiments/sensitivity_data.csv     (machine-readable, for figures)
+    experiments/fixtures/sensitivity_data.csv (machine-readable, for figures)
     stdout tables (also captured into sensitivity_results.md by hand)
 """
 

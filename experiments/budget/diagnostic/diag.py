@@ -2,7 +2,8 @@
 uklad). B: te same 3 warianty na ukladzie z dala od kubitow 2-7 i 16. C: T1 i echo Hahna na q2,q16,q3,q6.
 Etapy: plan | wyslij | odbierz. Id zadania zapisywany natychmiast do job.json."""
 import json, os, sys, time, pickle
-sys.path.insert(0, "/tmp/art-kompilator-stage/ibm_lustro_20261001")
+_EXP = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # experiments/
+sys.path.insert(0, _EXP)  # mirror_test_ibm.py (the mirror-test driver)
 import numpy as np
 from qiskit import QuantumCircuit, transpile, qpy
 HERE = os.path.dirname(os.path.abspath(__file__)); SHOTS = 4000; SHOTS_C = 500
@@ -35,9 +36,9 @@ def circ_echo(dt, tau_us, nq_total):
 
 
 def build(target):
-    import lustro as L
+    import mirror_test_ibm as L
     items = [it for it in L.build() if it["name"] == "controlled_adder_2b"]
-    isa_old = qpy.load(open("/tmp/art-kompilator-stage/budzet_20261002/lustro_isa.qpy", "rb"))
+    isa_old = qpy.load(open(os.path.join(HERE, "..", "lustro_isa.qpy"), "rb"))
     A = [isa_old[3], isa_old[4], isa_old[5]]
     lay = None
     for seed in range(1, 400):
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     st = sys.argv[1]
     if st == "plan":
         from qiskit_aer import AerSimulator
-        d = pickle.load(open("/tmp/art-kompilator-stage/budzet_20261002/kal_ibm_marrakesh.pkl", "rb"))
+        d = pickle.load(open(os.path.join(HERE, "..", "kal_ibm_marrakesh.pkl"), "rb"))
         A, Bc, Cc, lay, p0i, tags = build(d["target"])
         print("uklad B", lay, "2q:", [sum(1 for i in c.data if i.operation.num_qubits == 2) for c in Bc], "A 2q:", [sum(1 for i in c.data if i.operation.num_qubits == 2) for c in A])
         sim = AerSimulator()

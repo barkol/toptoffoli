@@ -30,30 +30,28 @@ given rewrite falls into):
      (1) is hopeless. ``equivalent`` and ``equivalent_up_to_global_phase`` both count
      as equivalent here (a global phase is physically unobservable).
 
-  3. ANALYSIS-SOUND PHASE-AWARE.  The phase-aware (relative-phase / Margolus)
-     substitutions are *deliberately NOT* plain unitary-equivalent to the exact
-     decomposition -- they differ by a RELATIVE phase. So they FAIL QCEC by
-     construction (QCEC will report ``not_equivalent``), and feeding them to this
-     module's unitary path would be a category error. Their soundness at scale does
-     NOT come from QCEC. It comes from the static analysis:
+  3. PROGRAM-SEMANTICS (condition (U)) SUBSTITUTIONS.  A standalone relative-phase
+     gadget admitted because its phase is invisible to the terminal
+     computational-basis measurement differs from the exact decomposition by a
+     diagonal phase, so it is deliberately NOT unitary-equivalent and QCEC reports
+     ``not_equivalent`` for it. Such outputs are certified only by the dense
+     observational certificate (``subspace_check.certify_on_input_subspace`` with
+     mode="observational": U_sel P_in = Phi U_ex P_in for a diagonal unitary Phi),
+     which is feasible up to about 12 qubits. Above that no decision-diagram
+     certificate is attempted (``qcec_certify_on_subspace(..., observational=True)``
+     returns False) and the selector fails closed to the all-exact circuit.
 
-         * :func:`phase_observability.is_phase_unobservable` proves the relative
-           phase can never reach a measurement, AND
-         * the SOUND reachable over-approximation
-           (:func:`reachable_subspace.reachable_overapprox`) restricts the inputs the
-           phase-insensitive agreement must hold on.
-
-     Where the over-approximation is used the criterion can only OVER-REJECT (it is
-     sound, not complete): it may refuse a valid substitution, but it can never admit
-     an invalid one. This is an ANALYSIS guarantee, not a machine-checked
-     whole-circuit equivalence, and we label it as such -- never as "verified".
+Note that the subroutine-semantics substitutions of the paper, conditions (C), (W)
+and (R), are equivalences on the input subspace up to ONE global phase. They are
+therefore certified by regime (1) or (2): with pinned clean ancillas, QCEC is run
+with those qubits declared as ancillas initialised to |0>
+(``subspace_check.qcec_certify_on_subspace``).
 
 :func:`verify_scalable` covers regimes (1) and (2): it dispatches exhaustive for
 small width and QCEC (or PyZX) for large, for substitutions where plain unitary
-equivalence is the right notion. For regime (3) it refuses to pretend: it returns a
-result tagged ``method="qcec"`` reporting ``not_equivalent`` if you (wrongly) hand it
-a phase-aware rewrite, and the caller is expected to certify those via the analysis
-instead (see :func:`decomposition_selector.ErrorBudgetSelector.select`).
+equivalence is the right notion. It does not certify regime (3): handed a
+program-semantics rewrite it reports ``not_equivalent``, and the caller must use the
+observational certificate (see :func:`decomposition_selector.ErrorBudgetSelector.select`).
 """
 
 from __future__ import annotations

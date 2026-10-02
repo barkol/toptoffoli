@@ -4,8 +4,7 @@ message: >-
   companion paper (see `preferred-citation`).
 type: software
 title: >-
-  toptoffoli: Context-Verified, Error-Budget-Aware Toffoli Decomposition
-  Selection
+  toptoffoli: Certified Context-Dependent Toffoli Decompositions
 authors:
   - family-names: Bartkiewicz
     given-names: Karol
@@ -18,11 +17,11 @@ authors:
     affiliation: >-
       Institute of Spintronics and Quantum Information,
       Faculty of Physics and Astronomy, Adam Mickiewicz University,
-      Poznań, Poland
+      Poznań, Poland; Poznań Supercomputing and Networking Center, IBCH PAS, Poznań, Poland
 repository-code: "https://github.com/barkol/toptoffoli"
 url: "https://github.com/barkol/toptoffoli"
 license: MIT
-version: "1.2.0"
+version: "1.2.1"
 keywords:
   - quantum computing
   - quantum compilation
@@ -33,8 +32,8 @@ keywords:
 preferred-citation:
   type: article
   title: >-
-    Context-Verified, Error-Budget-Aware Decomposition Selection for Toffoli
-    Networks
+    Certified Context-Dependent Toffoli Decompositions beyond
+    Compute–Uncompute Pairs: Fewer Two-Qubit Gates with Subroutine Guarantees
   authors:
     - family-names: Bartkiewicz
       given-names: Karol

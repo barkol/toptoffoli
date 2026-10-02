@@ -5,7 +5,7 @@ This package provides tools for optimizing quantum circuits with Toffoli gates,
 including depth optimization, gate count reduction, and benchmark utilities.
 """
 
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 __author__ = 'Karol Bartkiewicz and Patrycja Tulewicz'
 
 # Maintained, certified pass (the paper's method).

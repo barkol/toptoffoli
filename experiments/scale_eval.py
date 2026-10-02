@@ -106,14 +106,17 @@ class ScalableErrorBudgetSelector:
     substitutions are certified by QCEC (decision diagrams, up to global phase)
     instead of an infeasible exhaustive check.
 
-    SCOPE / HONESTY. This variant admits ONLY the compute/uncompute-PAIR path -- those
-    substitutions are plain unitary-equivalent to exact-only (the pair's relative
-    phases cancel), which is exactly what QCEC decides. The phase-AWARE standalone
-    path (a lone relative-phase Toffoli whose phase is merely UNOBSERVABLE) is NOT
-    unitary-equivalent and therefore CANNOT be certified by QCEC; it rests on the
-    phase_observability + reachable-over-approximation analysis. We do NOT silently
-    fold it in at scale: it is evaluated separately (analysis + small-instance
-    spot-check), see ``analysis_sound_phase_aware``.
+    SCOPE. This variant admits the subroutine-semantics conditions of the paper:
+    (C) compute/uncompute pairs (each pair certified by verify_scalable), (W)
+    window-certified mirror pairs (exact check on the segment) and (R) standalone
+    Margolus or mirrored gadgets that equal CCX with one phase on the projected
+    reachable subspace (exact local reachability with the pinned ancillas in |0>).
+    All of these are equivalences on the input subspace up to one global phase, so
+    the whole output is then certified by ``certify`` (dense on the input subspace
+    up to 12 qubits, QCEC with the pinned qubits as ancillas above). Condition (U)
+    (program semantics: a lone gadget whose phase is merely UNOBSERVABLE) is NOT
+    unitary-equivalent and is not admitted here; it is evaluated separately
+    (``scale_program.py``, analysis + small-instance spot-check).
     """
 
     def __init__(self, exhaustive_max_qubits: int = EXHAUSTIVE_MAX_QUBITS):

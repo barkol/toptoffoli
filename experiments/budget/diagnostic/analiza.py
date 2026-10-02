@@ -1,9 +1,10 @@
 """Analiza testu diagnostycznego: A (ten sam uklad), B (inny obszar), C (T1, echo Hahna)."""
-import json, pickle
+import json, os, pickle
 import numpy as np
 from scipy.optimize import curve_fit
-J = json.load(open("job.json")); C = json.load(open("counts.json"))
-OLD = json.load(open("/tmp/art-kompilator-stage/sumator_20261002/counts_all.json"))
+HERE = os.path.dirname(os.path.abspath(__file__))
+J = json.load(open(os.path.join(HERE, "job.json"))); C = json.load(open(os.path.join(HERE, "counts.json")))
+OLD = json.load(open(os.path.join(HERE, "counts_all.json")))  # counts of the 15 mirror circuits (job davcn5o4oijs73e7b5m0)
 tags = J["tags"]; taus = np.array(J["taus_us"], float); QC = J["q_C"]
 def p0(c): n = len(next(iter(c))); return c.get("0" * n, 0) / sum(c.values())
 def marg(c):
@@ -23,7 +24,7 @@ nT = len(taus); T1c = C[6:6 + nT]; Ec = C[6 + nT:6 + 2 * nT]
 def pq(c, k, bit):  # P(bit k == bit)
     t = sum(c.values()); return sum(v for s, v in c.items() if s[::-1][k] == bit) / t
 print("C: T1 i echo (us)")
-P = pickle.load(open("props_wysylka.pkl", "rb")); qp = {q: {p["name"]: p["value"] for p in ps} for q, ps in enumerate(P["qubits"])}
+P = pickle.load(open(os.path.join(HERE, "props_wysylka.pkl"), "rb")); qp = {q: {p["name"]: p["value"] for p in ps} for q, ps in enumerate(P["qubits"])}
 for k, q in enumerate(QC):
     y1 = np.array([pq(c, k, "1") for c in T1c]); ye = np.array([pq(c, k, "0") for c in Ec])
     try:
@@ -34,4 +35,4 @@ for k, q in enumerate(QC):
     except Exception as e: T2 = float("nan")
     out["C"][q] = dict(T1_fit=float(T1), T2echo_fit=float(T2), T1_kal=qp[q]["T1"], T2_kal=qp[q]["T2"], y_T1=y1.tolist(), y_echo=ye.tolist())
     print(f"  q{q}: T1 zmierzone={T1:.0f} (kal {qp[q]['T1']:.0f}),  T2echo zmierzone={T2:.0f} (kal {qp[q]['T2']:.0f})   P1(tau)={np.round(y1,2).tolist()}  P0echo={np.round(ye,2).tolist()}")
-json.dump(out, open("analiza.json", "w"), indent=1)
+json.dump(out, open(os.path.join(HERE, "analiza.json"), "w"), indent=1)

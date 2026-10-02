@@ -3,75 +3,83 @@
 Companion code to
 
 > K. Bartkiewicz and P. Tulewicz,
-> **"Context-Verified, Error-Budget-Aware Decomposition Selection for Toffoli Networks"**,
+> **"Certified Context-Dependent Toffoli Decompositions beyond Compute–Uncompute Pairs:
+> Fewer Two-Qubit Gates with Subroutine Guarantees"**,
 > [arXiv:2606.31791](https://arxiv.org/abs/2606.31791) (2026), submitted to *Quantum*.
+> (Version 1 of the preprint appeared under the title "Context-Verified, Error-Budget-Aware
+> Decomposition Selection for Toffoli Networks".)
 
 A compiler pass that selects, per Toffoli gate, the decomposition that
 minimizes a **hardware two-qubit-infidelity error budget** — not gate count —
-and admits every context-dependent (relative-phase or bounded-approximate)
-decomposition **only when a per-instance equivalence check certifies it in
-context**. Pattern-matched relative-phase substitution as deployed in current
-tooling is silently incorrect; the verification gate makes aggressive
-optimization sound while keeping essentially all of the savings.
+and admits a context-dependent (relative-phase or control-drop) decomposition
+**only under an operator condition on the reachable input subspace**, then certifies
+the whole output against the exact decomposition. In the default subroutine semantics
+the output equals the exact circuit on the input subspace up to one global phase, so
+it can be used inside a larger algorithm. Pattern-matched relative-phase substitution
+as deployed in current tooling is silently incorrect; the certified pass keeps most of
+the savings without that risk.
 
 The package ships the optimizer, the exact and scalable equivalence
 verifiers, the reachable-subspace and phase-observability admissibility
-checks, and — under `experiments/` — the complete drivers that regenerate
-every empirical figure and table in the paper.
+checks, the experiment drivers under `experiments/`, and under `paper/` the scripts
+and stored data that rebuild every table, figure and generated number of the paper.
 
 ## Method in three sentences
 
 1. **Objective.** Minimize the two-qubit-infidelity budget of the emitted
    circuit under the device's `p_{2q}` — not the CCX or two-qubit gate count.
-2. **Admission.** For each Toffoli site, consider the exact 6-CX decomposition
-   and every cheaper context-dependent alternative (relative-phase RCCX,
-   bounded-approximate, ancilla-augmented). Reject an alternative unless
-   either (a) reachable-subspace + phase-observability analysis certifies
-   soundness, or (b) an exact equivalence check on the enclosing window
-   confirms it.
-3. **Verification.** Below ~10 qubits, exhaustive truth-table / unitary
-   comparison; above, decision-diagram equivalence (MQT QCEC) certifies each
-   accepted pair substitution up to global phase.
+2. **Admission.** For each Toffoli, consider the exact 6-CX decomposition
+   and the cheaper context-dependent alternatives (3-CX relative-phase gadgets,
+   control drops). Admit one only under condition (C) (a compute/uncompute pair,
+   checked exactly), (W) (a certified window between mirrored gates) or (R) (equality
+   with CCX up to one phase on the span of the reachable basis states). Condition (U)
+   (phase invisible to a terminal measurement) is available only in program semantics.
+3. **Certification.** The whole output is certified against the exact decomposition on
+   the input subspace: densely up to 12 qubits, by decision diagrams (MQT QCEC, pinned
+   qubits as ancillas) above. If the certificate fails or is undecided, the pass
+   returns the exact decomposition.
 
 ## Quickstart
 
 ```bash
-git clone https://github.com/barkol/toptoffoli
+git clone --branch v1.2.1 https://github.com/barkol/toptoffoli
 cd toptoffoli
 pip install -e ".[experiments,dev]"
 
-pytest                                        # unit tests, ~1 min
-python experiments/safety_experiment.py       # reproduces Fig. `safety`, ~30 s
-python experiments/make_figures.py            # writes the four paper PDFs
+pytest tests                                  # 502 passed, 87 xfailed (~6 min)
+paper/reproduce.sh                            # rebuild tables, figures, numbers of the paper
+git status paper/                             # empty: outputs identical to the stored ones
 ```
 
-## Reproducing every figure and table
+## Reproducing the paper
 
-Every empirical panel of the paper has a driver in `experiments/`. See
-[`experiments/README.md`](experiments/README.md) for the full mapping
-(paper artefact → script → runtime) and
-[`docs/reproduction.md`](docs/reproduction.md) for step-by-step commands
-and expected outputs.
+[`paper/README.md`](paper/README.md) maps every table, figure and generated number of the
+paper to the script that builds it and the data it reads, and lists the order in which
+to run the experiment drivers:
 
-Headline drivers:
-
-| Paper artefact                       | Script                                 | Runtime |
-|---                                   |---                                     |---      |
-| Fig. `safety`                        | `experiments/safety_experiment.py`     | ~30 s   |
-| Table (b) — verification-gate ablation | `experiments/ablation_b.py`          | ~10 s   |
-| Fig. `budget`                        | `experiments/baselines.py`             | ~1-5 min (with/without tket) |
-| Fig. `device`                        | `experiments/sensitivity_sweep.py`     | ~5-10 min |
-| Fig. `scale` (12-24 q)               | `experiments/scale_eval.py`            | ~2 h    |
-| Table / Fig. `reset` (application)   | `experiments/sync_benchmark.py`        | ~3-10 min |
-| Density-matrix noise validation      | `experiments/noisy_sim.py`             | ~5 min  |
-| All four figure PDFs                 | `experiments/make_figures.py`          | <5 s    |
+1. `experiments/` drivers (hours) write the raw results: 12-circuit suite
+   (`safety_experiment.py`, `ablation_b.py`, `baselines.py`, `sensitivity_sweep.py`,
+   `noisy_sim.py`), resetting circuits (`sync_benchmark.py`, `sync_scale.py`),
+   12–24-qubit suite (`scale_eval_ckpt.py`, `scale_program.py`), RevLib
+   (`revlib/fetch_revlib.py`, `revlib/revlib_eval.py`, `revlib/revlib_extra.py`),
+   IBM mirror test (`mirror_test_ibm.py`), error budget on hardware (`budget/`).
+2. `paper/reproduce.sh` rebuilds from the stored results the tables
+   (`paper/tables/make_tab_{semantics,mirror,revlib}.py`), the figure data and the
+   figures (`paper/figures/figures_data.py`, `paper/figures/make_figures.py`) and the
+   numbers of the text (`paper/liczby/liczby_v14.py` -> `liczby.json`). The outputs are
+   byte-identical to the files of the manuscript (figure PDFs pixel-identical).
+3. `paper/recert/` holds the recertification of every QCEC result with the corrected
+   QCEC settings and a state-vector check; `paper/ablation/` the ablation of all
+   verification; `paper/data_v12/` a rerun of the 12–24-qubit suite and RevLib with
+   the release code.
 
 ## Repository layout
 
 ```
 toptoffoli/
 ├── toffoli_optimizer/    # the package (core algorithms, CLI, utilities)
-├── experiments/          # drivers that reproduce every paper figure/table
+├── experiments/          # experiment drivers and their stored raw results
+├── paper/                # tables, figures and numbers of the paper (scripts + data)
 ├── tests/                # pytest suite
 ├── examples/             # standalone demos + example input circuits
 ├── benchmarks/           # micro-benchmarks (not the paper's suite)
@@ -80,16 +88,23 @@ toptoffoli/
 
 ## Requirements
 
-- Python ≥ 3.9
-- `qiskit` ≥ 1.2, `numpy`, `matplotlib` — always required
-- Optional (for `experiments/`):
-  - `qiskit-aer` — density-matrix noise validation
-  - `pytket`, `pytket-qiskit` — the tket baseline in `baselines.py`
-  - `mqt.qcec` — decision-diagram verification above the exhaustive limit
+- Python ≥ 3.10 (the paper used 3.12)
+- `qiskit` ≥ 2.4, `numpy`, `matplotlib` — always required
+- Optional (for `experiments/` and `paper/`):
+  - `qiskit-aer` ≥ 0.17 — density-matrix noise validation, mirror-test plan
+  - `pytket` ≥ 2.18, `pytket-qiskit` ≥ 0.77 — the tket baseline in `baselines.py`
+  - `mqt.qcec` ≥ 3.6.1 — decision-diagram certificates above 12 qubits. The certificates
+    pass `run_zx_checker`, `elide_permutations` and `trace_threshold` and fail closed
+    if the installed QCEC does not accept them.
+  - `scipy` — statistics of the hardware analysis
+  - `qiskit-ibm-runtime` — only for submitting the IBM jobs
+  - a LaTeX installation — the figures are typeset with `text.usetex`
+- The minimum versions are the versions used for the paper; the full list of that
+  environment is in [`paper/environment.txt`](paper/environment.txt).
 
 ## Maintained and deprecated parts
 
-**Maintained (v1.2):** the certified decomposition pass of the paper —
+**Maintained (v1.2.x):** the certified decomposition pass of the paper —
 `toffoli_optimizer.core` modules `decomposition_selector`, `subspace_check`,
 `reach_local`, `reachable_subspace`, `window_pairs`, `orientation`,
 `context_analysis`, `phase_observability`, `error_model`, `equivalence_verifier`,
@@ -105,7 +120,7 @@ dropped or moved to wrong qubits; command-line tools that write circuits not
 equivalent to their input). Each bug is pinned as a strict `xfail` test in
 `tests/unit/`. Do not use these modules for results that must be correct.
 
-**Certificates (v1.2):** all decision-diagram certificates call MQT QCEC with
+**Certificates (since v1.2):** all decision-diagram certificates call MQT QCEC with
 `run_zx_checker=False`, `elide_permutations=False` and `trace_threshold=1e-12`.
 With the defaults used up to v1.1, QCEC could report `equivalent` for circuits that
 differ on the input subspace when ancillas are declared, treated a SWAP as the
@@ -115,18 +130,20 @@ state-vector simulation on random superposed inputs; all verdicts were unchanged
 
 ## Tests
 
-`pytest tests` runs about 450 tests: regression tests for the soundness of the pass
+`pytest tests` runs 589 tests (502 pass, 87 are strict `xfail`): regression tests for the soundness of the pass
 (including the editor's counterexample), property tests against dense-matrix ground
 truth on random circuits, and strict `xfail` tests that document the known bugs of
 the deprecated modules.
 
+## Citation
 
 If you use this software or reproduce results from the paper, please cite:
 
 ```bibtex
 @article{bartkiewicz2026toptoffoli,
-  title   = {Context-Verified, Error-Budget-Aware Decomposition Selection
-             for Toffoli Networks},
+  title   = {Certified Context-Dependent {Toffoli} Decompositions beyond
+             Compute--Uncompute Pairs: Fewer Two-Qubit Gates with
+             Subroutine Guarantees},
   author  = {Bartkiewicz, Karol and Tulewicz, Patrycja},
   journal = {arXiv preprint arXiv:2606.31791},
   year    = {2026},

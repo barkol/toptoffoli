@@ -13,33 +13,40 @@ are two kinds of Toffoli decomposition:
 
 ``ErrorBudgetSelector`` chooses, per Toffoli, which decomposition to use so as to
 minimize the :class:`HardwareErrorModel` infidelity (dominated by the two-qubit
-count). It admits the cheap relative-phase gadget ONLY at a structurally detected
-compute/uncompute site AND only after :class:`ExactEquivalenceVerifier` certifies,
-on the affected window, that substituting the gadget into BOTH gates of the pair
-yields a circuit exactly equivalent to the all-exact decomposition.
+count). A cheaper lowering is admitted only under one of the admissibility
+conditions of the paper, each of which is an OPERATOR condition (one phase for a
+whole subspace), never a basis-state-by-basis-state comparison. A per-basis-state,
+phase-insensitive check is blind to relative phases between reachable basis states,
+which superposed inputs turn into observable interference (see ``subspace_check``),
+so no such check is used for admission or certification.
 
-KEY GUARANTEE: the returned circuit is always verified-correct against the
-exact-only decomposition. Relative-phase gadgets appear only at verified sites; a
-site that fails verification is rejected and falls back to the exact gadget.
+* (C) compute/uncompute pairs: a structurally detected pair (``context_analysis``)
+  gets relative-phase gadgets on both gates only if :class:`ExactEquivalenceVerifier`
+  certifies that the circuit with both gadgets is exactly unitary-equivalent to the
+  all-exact decomposition (no wire permutation).
+* (W) window pairs (``window_pairs``): a mirrored pair the structural detector
+  rejects is admitted only if the segment between the two gates, with gadgets,
+  equals the exact segment up to one global phase on the qubits it touches.
+* (R) reachable subspace: a standalone Toffoli gets a relative-phase gadget, or a
+  control-drop specialisation, only if  U_d P = e^{i theta} U_CCX P  with ONE phase
+  theta, where P projects onto the span of the (soundly over-approximated) reachable
+  basis states at the gate (``check_on_subspace``). With ``epsilon > 0`` the
+  bounded variant  min_theta ||(U_d - e^{i theta} U_CCX) P||_op <= epsilon  is used
+  and epsilon is charged to the error budget.
+* (U) unobservable phase, ``semantics="program"`` only: a standalone gadget whose
+  diagonal phase is provably invisible to the terminal computational-basis
+  measurement (``is_phase_unobservable``: every later gate on the phased qubits is a
+  basis permutation). This changes the unitary and is therefore never used in the
+  default ``semantics="subroutine"``.
 
-PHASE-OBSERVABILITY-AWARE PATH (``phase_aware=True``, default). Beyond the
-compute/uncompute-pair path, the selector admits the cheap relative-phase gadget at a
-STANDALONE Toffoli ``g`` when BOTH hold:
-
-  * ``is_phase_unobservable(circuit, g, ...)`` -- the relative phase it introduces can
-    never affect any measurement outcome (it cancels in a pair, OR its forward cone is
-    purely classical-reversible into a computational-basis read; see
-    ``phase_observability``), AND
-  * ``verify_on_reachable_basis`` -- on every REACHABLE basis input (computed / soundly
-    over-approximated by ``reachable_subspace``), the gadget agrees with the exact CCX
-    on the output computational-basis state, PHASE-INSENSITIVELY, ancilla clean.
-
-This admits substitutions the exact-unitary, pair-only path provably cannot (a
-relative-phase gadget differs from CCX by a relative phase, so it always FAILS the
-exact-unitary check as a standalone replacement -- yet is sound when the phase is
-unobservable). Every committed substitution is therefore sound: either
-exact-unitary-equivalent (pairs) or reachable-basis-equivalent-with-unobservable-phase
-(the new path). UNSOUND admissions are impossible by the double gate.
+KEY GUARANTEE: the selected circuit is certified end to end against the exact-only
+decomposition on the input subspace (all basis inputs, or those with the pinned
+qubits in |0>): in subroutine semantics  U_sel P_in = e^{i theta} U_ex P_in  with
+one phase (dense ``certify_on_input_subspace`` up to 12 qubits, MQT QCEC with the
+pinned qubits as ancillas above); in program semantics equality of the output
+distributions for every input state on that subspace, superpositions included.
+If the certificate fails or is undecided, the selector fails closed and returns the
+all-exact decomposition.
 """
 
 from __future__ import annotations
@@ -241,8 +248,9 @@ class ErrorBudgetSelector:
         # BOUNDED-APPROXIMATE-ON-REACHABLE knob. epsilon == 0.0 admits only candidates
         # that agree with CCX EXACTLY on the reachable subspace (e.g. a provably
         # constant control). epsilon > 0.0 additionally admits a cheaper
-        # context-specialised candidate whose worst-case phase-insensitive deviation
-        # over the (soundly over-approximated) reachable subspace is <= epsilon -- AND
+        # context-specialised candidate whose deviation min_theta ||(U_d - e^{i theta}
+        # U_CCX) P||_op on the (soundly over-approximated) reachable subspace is
+        # <= epsilon -- AND
         # only when the two-qubit-gate infidelity it SAVES exceeds the epsilon it
         # SPENDS (epsilon is charged into the circuit's error budget).
         if epsilon < 0.0:
@@ -368,14 +376,13 @@ class ErrorBudgetSelector:
                                             "condition": "R", "reachable_local": len(local)})
                     break
 
-        # ---- NEW PATH: phase-observability-aware standalone admissibility --------
-        # A standalone Toffoli (not in a compute/uncompute pair) can ALSO get the
-        # cheap relative-phase gadget IF its relative phase is provably unobservable
-        # on the reachable subspace. This admits substitutions the pair-only path
-        # cannot. Each is double-gated: (1) is_phase_unobservable proves the extra
-        # phase can never affect a measurement, and (2) verify_on_reachable_basis
-        # confirms the gadget agrees with the exact CCX (phase-insensitively) on
-        # every REACHABLE basis input. Both must hold -> sound.
+        # ---- Condition (U), program semantics only --------------------------------
+        # A standalone Toffoli (not in a compute/uncompute pair) can get the cheap
+        # relative-phase gadget when its diagonal phase is provably invisible to the
+        # terminal computational-basis measurement (is_phase_unobservable: the
+        # forward cone of the phased qubits contains only basis permutations). This
+        # changes the unitary, so it is used only with semantics="program" and the
+        # final certificate is then the observational one.
         # Indices belonging to a verified compute/uncompute PAIR are soundness-locked:
         # their relative-phase gadgets cancel only as a matched pair, so the approx
         # path below must never touch them.
@@ -419,19 +426,19 @@ class ErrorBudgetSelector:
                 phase_admitted.append({
                     "index": idx, "qubits": qb, "condition": "U"})
 
-        # ---- NEW PATH: bounded-approximate-on-the-reachable-subspace -------------
+        # ---- Condition (R) for control drops, and its bounded-approximate variant ---
         # For each still-exact standalone CCX, try the CONTROL-DROP specialisations
         # (drop-to-identity, drop control a -> CX(b,t), drop control b -> CX(a,t)).
-        # Each candidate is admitted iff (1) its worst-case phase-insensitive
-        # deviation over the SOUND over-approximation of the reachable subspace is
-        # <= epsilon, AND (2) the two-qubit-gate infidelity it SAVES strictly exceeds
+        # Each candidate is admitted iff (1) its operator-norm deviation from CCX with
+        # ONE phase on the span of the SOUND over-approximation of the reachable
+        # subspace is <= epsilon (check_on_subspace), AND (2) the two-qubit-gate infidelity it SAVES strictly exceeds
         # the epsilon it SPENDS (epsilon is charged into the error budget). With
         # epsilon == 0 only EXACT-on-reachable drops (e.g. a provably-|0> control)
-        # can fire. The deviation is measured by the verifier against the exact-only
-        # decomposition; control_drop is never globally equivalent, so it is
+        # can fire. The deviation is measured against the 8x8 CCX unitary on the
+        # projected reachable subspace; control_drop is never globally equivalent, so it is
         # admissible ONLY through this reachable-subspace check.
         # NOTE on scope: a standalone CCX already assigned the relative-phase gadget
-        # by the phase-aware path above is RECONSIDERED here -- a control-drop may be
+        # by condition (U) above is RECONSIDERED here -- a control-drop may be
         # strictly cheaper (down to 0 or 1 two-qubit gates vs the gadget's 3) and just
         # as sound on the reachable subspace. Indices locked into a compute/uncompute
         # PAIR (``paired_idx``) are never touched: their gadgets cancel only as a pair.
@@ -507,27 +514,24 @@ class ErrorBudgetSelector:
         selected = self._build(circuit, actions)
         epsilon_spent_total = sum(epsilon_per_index.values())
 
-        # Final whole-circuit certification. There are two soundness regimes:
+        # Final whole-circuit certification, on the input subspace P_in:
         #
-        #  * If NO phase-aware (standalone, unobservable-phase) substitution was made,
-        #    the selected circuit is exact-unitary-equivalent to the exact-only
-        #    decomposition -- certify with the strict exact verifier (unchanged).
+        #  * No (R)/(U)/control-drop admission and no pinned qubits: the selected
+        #    circuit must be exactly unitary-equivalent to exact-only (strict verifier).
         #
-        #  * If at least one phase-aware substitution was made, the selected circuit
-        #    intentionally differs from exact-only by an UNOBSERVABLE relative phase,
-        #    so an exact-unitary check would (correctly) fail. We instead certify the
-        #    weaker-but-sound guarantee that backs those substitutions: on every
-        #    REACHABLE basis input, selected and exact-only produce the same output
-        #    computational-basis state (phase-insensitive), with ancilla clean. Each
-        #    such substitution was additionally gated by is_phase_unobservable, so the
-        #    relative phase cannot affect any measurement -> sound.
+        #  * Otherwise, subroutine semantics: U_sel P_in = e^{i theta} U_ex P_in with
+        #    ONE phase (certify_on_input_subspace(mode="subroutine"), or QCEC with the
+        #    pinned qubits declared as ancillas above 12 qubits).
         #
-        #  * If at least one BOUNDED-APPROXIMATE (control-drop) substitution was made,
-        #    the selected circuit differs from exact-only by MORE than a phase even on
-        #    the reachable subspace -- but by at most ``epsilon`` per reachable input.
-        #    We certify the quantitative guarantee that backs those substitutions: the
-        #    worst-case phase-insensitive reachable deviation is <= epsilon. (The
-        #    error budget separately accounts for the epsilon spent.)
+        #  * If some substitution relied on condition (U) (program semantics only):
+        #    observational equivalence, i.e. U_sel P_in = Phi U_ex P_in for a diagonal
+        #    unitary Phi, which is equality of the computational-basis output
+        #    distributions for every input state on span(P_in), superpositions
+        #    included (mode="observational").
+        #
+        #  * With bounded-approximate (control-drop, epsilon > 0) admissions the same
+        #    statements are certified up to the operator-norm tolerance epsilon_spent,
+        #    which the error budget accounts for.
         # The whole-circuit certification is on the circuit's INPUT domain -- the set
         # of computational-basis states the caller asserts the circuit is run on
         # (``input_space``; the full 2^n space by default). We feed those as inputs to

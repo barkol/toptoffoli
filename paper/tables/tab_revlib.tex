@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering\small
+\caption{RevLib suite: all $56$ NOT/CNOT/Toffoli realizations with at most $23$ lines that complete within the time limit. Summed two-qubit count and infidelity, change of
+the two-qubit count relative to exact-only, and the number of outputs that pass the
+subroutine certificate (Cert.). Constant-$0$ lines are pinned as clean ancillae.}
+\label{tab:revlib}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrc}
+\toprule
+Method & 2q & Infid. & $\Delta$2q & Cert. \\
+\midrule
+Exact only & $1877$ & $15.29$ & -- & $56/56$ \\
+Qiskit opt-3 & $1721$ & $14.34$ & $-8.3\%$ & $56/56$ \\
+tket & $1715$ & $14.19$ & $-8.6\%$ & $56/56$ \\
+Count-greedy & $1076$ & $9.84$ & $-42.7\%$ & $3/56$ \\
+This work & $1465$ & $12.75$ & $-21.9\%$ & $56/56$ \\
+This work $\to$ Qiskit opt-3 & $1374$ & $12.06$ & $-26.8\%$ & $56/56$ \\
+\bottomrule
+\end{tabular}
+\end{table}
