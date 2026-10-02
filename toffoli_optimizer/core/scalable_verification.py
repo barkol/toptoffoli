@@ -240,17 +240,19 @@ def _run_qcec(original, rewritten, n, timeout_s):
     # decision-diagram construction + alternating + simulation checkers decide these
     # cases correctly (and remain sound: a DD ``equivalent`` is a real proof up to
     # global phase). We therefore turn the ZX checker OFF and rely on the DD checkers.
-    kwargs = {"run_zx_checker": False}
+    # elide_permutations=False: with the default, QCEC treats a SWAP (or 3 CX) as the
+    # identity and certifies a permuted circuit. No fallback to default options: if
+    # they are not accepted, the check is undecided (fail closed).
+    kwargs = {"run_zx_checker": False, "elide_permutations": False}
     if timeout_s is not None:
         kwargs["timeout"] = float(timeout_s)
     try:
         res = qcec.verify(original, rewritten, **kwargs)
-    except TypeError:
-        # older/newer signature without these kwargs -- fall back to defaults.
-        try:
-            res = qcec.verify(original, rewritten, run_zx_checker=False)
-        except TypeError:
-            res = qcec.verify(original, rewritten)
+    except TypeError as exc:
+        return ScalableVerifyResult(
+            equivalent=None, method="qcec", up_to_global_phase=False, n_qubits=n,
+            wall_time_s=time.perf_counter() - t0,
+            detail={"reason": f"QCEC options unsupported: {exc!r}"})
     dt = time.perf_counter() - t0
 
     crit = res.equivalence
@@ -261,8 +263,7 @@ def _run_qcec(original, rewritten, n, timeout_s):
     # neither proved nor disproved equivalence (e.g. it timed out / ran out of
     # heuristics) -- it is NOT a proof of inequivalence, so we report ``None``
     # (undecided) rather than a (potentially wrong) ``False``.
-    if crit_name in ("equivalent", "equivalent_up_to_global_phase",
-                     "equivalent_up_to_phase"):
+    if crit_name in ("equivalent", "equivalent_up_to_global_phase"):
         equivalent: Optional[bool] = True
     elif crit_name in ("not_equivalent", "probably_not_equivalent"):
         equivalent = False

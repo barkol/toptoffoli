@@ -189,10 +189,16 @@ def qcec_certify_on_subspace(exact, selected, pinned_zero=(), observational=Fals
         import mqt.qcec as qcec
     except Exception as exc:
         return False, {"reason": f"QCEC unavailable: {exc!r}"}
+    # run_zx_checker=False: with ancilla qubits the ZX checker returned "equivalent"
+    # for pairs that differ on the input subspace (e.g. an extra X on a pinned qubit).
+    # elide_permutations=False: otherwise QCEC treats a SWAP (or 3 CX) as identity.
+    # If this QCEC version does not accept these options we do not fall back to the
+    # defaults: the certificate fails closed.
+    kw = dict(run_zx_checker=False, elide_permutations=False, timeout=timeout)
     try:
-        r = qcec.verify(with_ancillas(exact, pinned_zero), with_ancillas(selected, pinned_zero), timeout=timeout)
-    except TypeError:
-        r = qcec.verify(with_ancillas(exact, pinned_zero), with_ancillas(selected, pinned_zero))
+        r = qcec.verify(with_ancillas(exact, pinned_zero), with_ancillas(selected, pinned_zero), **kw)
+    except TypeError as exc:
+        return False, {"reason": f"QCEC options unsupported: {exc!r}"}
     eq = str(r.equivalence).split(".")[-1]
     ok = eq in ("equivalent", "equivalent_up_to_global_phase")
     return ok, {"qcec": eq}
