@@ -31,7 +31,15 @@ def cmp(label, old, new, fields):
 
 cmp("scale (scale_rows.jsonl)", load(os.path.join(OLD, "scale_rows.jsonl"), "name"), load(os.path.join(V12, "scale_rows.jsonl"), "name"),
     ["n", "family", "twoq_exact", "twoq_ours", "infid_exact", "infid_ours", "red_2q", "qiskit_2q", "sites_applied", "window_pairs", "r_gadgets", "cert_method", "cert_equiv"])
-cmp("scale program (scale_program_rows.jsonl)", load(os.path.join(OLD, "scale_program_rows.jsonl"), "name"), load(os.path.join(V12, "scale_program_rows.jsonl"), "name"),
+new_prog = load(os.path.join(V12, "scale_program_rows.jsonl"), "name")
+# array_mult_6b: QCEC does not decide within the per-call limit; as for the paper, the verdict comes from
+# an unbounded QCEC run (paper/scale/qcec_mult6.py), stored as array_mult_6b_<tag>.json.
+for tag in ("prog", "greedy"):
+    f = os.path.join(V12, f"array_mult_6b_{tag}.json")
+    if new_prog and os.path.exists(f) and "array_mult_6b" in new_prog:
+        m = json.load(open(f)); new_prog["array_mult_6b"][f"sub_ok_{tag}"] = m["equivalent"]
+        new_prog["array_mult_6b"][f"sub_method_{tag}"] = "qcec_nocny"  # same label as the paper's unbounded run
+cmp("scale program (scale_program_rows.jsonl)", load(os.path.join(OLD, "scale_program_rows.jsonl"), "name"), new_prog,
     ["twoq_exact", "infid_exact", "twoq_sub", "twoq_prog", "infid_prog", "twoq_greedy", "infid_greedy", "U_admitted", "pairs", "r_gadgets",
      "sub_ok_prog", "sub_ok_greedy", "prog_ok_prog", "prog_ok_greedy", "sub_method_prog", "sub_method_greedy"])
 old = load(os.path.join(RL, "wyniki.jsonl"), "file"); new = load(os.path.join(V12, "wyniki.jsonl"), "file")
