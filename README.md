@@ -106,6 +106,18 @@ If you use this software or reproduce results from the paper, please cite:
 Machine-readable metadata is provided in [`CITATION.cff`](CITATION.cff)
 (rendered by GitHub as a "Cite this repository" widget in the sidebar).
 
+## Use of AI in code development
+
+The code in this repository was developed with substantial help from a large
+language model (Claude, Anthropic). It wrote and tested code for the optimizer
+(including the subspace admissibility checks, certified windows, the mirrored
+gadget, calibration-aware orientation and the error model) and the evaluation
+and diagnostic scripts, and it ran and analysed the experiments. The authors
+reviewed the code and the results and take full responsibility for them. The
+regression tests in `tests/` (run with `pytest tests`) and the input-subspace
+certificate, which every output of the pass must pass, are the safeguards we
+rely on rather than review alone.
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
