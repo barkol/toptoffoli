@@ -243,7 +243,7 @@ def _run_qcec(original, rewritten, n, timeout_s):
     # elide_permutations=False: with the default, QCEC treats a SWAP (or 3 CX) as the
     # identity and certifies a permuted circuit. No fallback to default options: if
     # they are not accepted, the check is undecided (fail closed).
-    kwargs = {"run_zx_checker": False, "elide_permutations": False}
+    kwargs = {"run_zx_checker": False, "elide_permutations": False, "trace_threshold": 1e-12}
     if timeout_s is not None:
         kwargs["timeout"] = float(timeout_s)
     try:

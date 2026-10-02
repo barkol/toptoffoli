@@ -576,7 +576,7 @@ class ErrorBudgetSelector:
         # Fail closed: a failed whole-circuit certificate must never let an
         # uncertified circuit out. Fall back to the all-exact decomposition.
         fell_back = False
-        if verified is False:
+        if verified is not True:   # False or undecided (None): fail closed
             selected = exact
             fell_back = True
             applied, phase_admitted, approx_admitted, rphase_admitted = [], [], [], []

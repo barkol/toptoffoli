@@ -194,7 +194,9 @@ def qcec_certify_on_subspace(exact, selected, pinned_zero=(), observational=Fals
     # elide_permutations=False: otherwise QCEC treats a SWAP (or 3 CX) as identity.
     # If this QCEC version does not accept these options we do not fall back to the
     # defaults: the certificate fails closed.
-    kw = dict(run_zx_checker=False, elide_permutations=False, timeout=timeout)
+    # trace_threshold: with the default tolerance QCEC accepted circuits that differ by
+    # rx(1e-4) (audit A-B5); 1e-12 still certifies the 22-qubit outputs of the paper.
+    kw = dict(run_zx_checker=False, elide_permutations=False, trace_threshold=1e-12, timeout=timeout)
     try:
         r = qcec.verify(with_ancillas(exact, pinned_zero), with_ancillas(selected, pinned_zero), **kw)
     except TypeError as exc:
