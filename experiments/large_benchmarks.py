@@ -111,6 +111,12 @@ def modular_increment(nbits: int) -> QuantumCircuit:
     propagate the increment, the conditional bit flips, then the carries UNcomputed.
     Compute/uncompute-structured -> relative-phase SAFE.
 
+    Known defect (kept, since the published results use this circuit): the last
+    uncompute uses x[0] after its flip, so car[0] is not restored when ctrl=1. The
+    increment of x is correct on every basis input; the circuit is a structural model
+    of a modular incrementer. Every output of the pass is certified against the exact
+    decomposition of this same circuit, so the defect does not affect soundness.
+
     Width = 2*nbits + 1. nbits=6 -> 13; nbits=8 -> 17; nbits=11 -> 23.
     """
     ctrl = QuantumRegister(1, "ctrl")
