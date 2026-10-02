@@ -30,6 +30,7 @@ decomposition (see ``_MULTIQUBIT_2Q_COST``) so the cost never under-counts.
 
 from __future__ import annotations
 
+import math
 from typing import Optional
 
 # Names that cost nothing.
@@ -64,6 +65,10 @@ class HardwareErrorModel:
         p2q: float = 1e-2,
         p1q: float = 1e-3,
         p_readout: float = 0.0,
+        t1: Optional[float] = None,
+        t2: Optional[float] = None,
+        t_2q: float = 68e-9,
+        t_1q: float = 36e-9,
     ):
         if not (0.0 <= p2q < 1.0):
             raise ValueError("p2q must be in [0, 1)")
@@ -74,6 +79,16 @@ class HardwareErrorModel:
         self.p2q = p2q
         self.p1q = p1q
         self.p_readout = p_readout
+        # Optional idle (decoherence) term. Off by default (t1 is None), so all
+        # gate-count results are unchanged. When set, every qubit that has started
+        # its computation and waits for others pays a Pauli-twirled amplitude and
+        # phase damping channel for the waiting time (see ``idle_fidelity``).
+        if (t1 is None) != (t2 is None):
+            raise ValueError("t1 and t2 must be given together")
+        if t1 is not None and (t1 <= 0 or t2 <= 0):
+            raise ValueError("t1 and t2 must be positive")
+        self.t1, self.t2 = t1, t2
+        self.t_2q, self.t_1q = t_2q, t_1q
 
     # ------------------------------------------------------------------ helpers
     @staticmethod
@@ -133,7 +148,8 @@ class HardwareErrorModel:
         return total
 
     def circuit_infidelity(self, circuit) -> float:
-        """Estimated total infidelity 1 - prod_g (1 - err(g)) over all gates.
+        """Estimated total infidelity 1 - prod_g (1 - err(g)) over all gates,
+        times the idle fidelity when ``t1``/``t2`` are set.
 
         Monotonic in the number of (error-weighted) gates and dominated by the
         two-qubit count when ``p2q >> p1q``. This is the figure the selector
@@ -145,7 +161,58 @@ class HardwareErrorModel:
             err = self.gate_error(name, self._num_qubits(circuit, inst))
             if err:
                 f *= (1.0 - err)
+        if self.t1 is not None:
+            f *= self.idle_fidelity(circuit)
         return 1.0 - f
+
+    # ------------------------------------------------------------------- idle
+    def _duration(self, name: str, nq: int) -> float:
+        if name in _FREE_GATES or name in ("rz", "measure"):
+            return 0.0
+        if name in _MULTIQUBIT_2Q_COST:
+            return _MULTIQUBIT_2Q_COST[name] * self.t_2q + 8 * self.t_1q
+        return self.t_2q if nq >= 2 else self.t_1q
+
+    def idle_times(self, circuit) -> dict:
+        """Waiting time of every qubit under an ALAP schedule (no routing).
+
+        The schedule runs on the reversed gate list, so each qubit starts as late as
+        possible. A qubit idles between its first gate and the end of the circuit
+        whenever it is not busy; before its first gate it is still in |0> and does
+        not decohere, so that interval is not charged."""
+        n = circuit.num_qubits
+        cur = [0.0] * n
+        busy = [0.0] * n
+        first = [None] * n
+        for inst in reversed(circuit.data):
+            name = inst.operation.name.lower()
+            qs = [circuit.find_bit(q).index for q in inst.qubits]
+            if name == "barrier":
+                t = max(cur[q] for q in qs)
+                for q in qs:
+                    cur[q] = t
+                continue
+            t0 = max(cur[q] for q in qs)
+            dt = self._duration(name, len(qs))
+            for q in qs:
+                cur[q] = t0 + dt
+                if dt > 0:
+                    busy[q] += dt
+                    first[q] = t0 + dt
+        return {q: max(0.0, first[q] - busy[q]) for q in range(n) if first[q] is not None}
+
+    def idle_fidelity(self, circuit) -> float:
+        """prod_q (1 - p_x - p_y - p_z) for the Pauli-twirled amplitude and phase
+        damping channel: p_x = p_y = (1 - e^{-tau/T1})/4,
+        p_z = (1 - e^{-tau/T2})/2 - (1 - e^{-tau/T1})/4."""
+        if self.t1 is None:
+            return 1.0
+        f = 1.0
+        for tau in self.idle_times(circuit).values():
+            a = 1.0 - math.exp(-tau / self.t1)
+            b = 1.0 - math.exp(-tau / self.t2)
+            f *= 1.0 - a / 2.0 - max(0.0, b / 2.0 - a / 4.0)
+        return f
 
     def circuit_fidelity(self, circuit) -> float:
         """Estimated total fidelity prod_g (1 - err(g))."""
