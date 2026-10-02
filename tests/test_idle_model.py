@@ -42,5 +42,20 @@ def test_idle_formula():
     assert abs(m.idle_fidelity(qc) - expect) < 1e-12
 
 
+
+def test_zz_and_excess_terms():
+    import math
+    qc = QuantumCircuit(2); qc.cx(0, 1)
+    for _ in range(9): qc.x(0)
+    qc.cx(0, 1)
+    base = HardwareErrorModel()
+    m = HardwareErrorModel(zz_hz=5e3, t_2q=100e-9, t_1q=100e-9, p_excess_2q=2e-3)
+    T = 11 * 100e-9  # both qubits active from the first to the last gate
+    zz = 1 - 0.75 * math.sin(math.pi * 5e3 * T) ** 2
+    expect = (1 - base.circuit_infidelity(qc)) * zz * (1 - 2e-3) ** 2
+    assert abs((1 - m.circuit_infidelity(qc)) - expect) < 1e-12
+    assert HardwareErrorModel(zz_hz=5e3, zz_pairs=[(0, 2)]).zz_fidelity(qc) == 1.0
+
+
 if __name__ == "__main__":
-    test_default_unchanged(); test_idle_only_after_first_gate(); test_idle_formula(); print("ok")
+    test_default_unchanged(); test_idle_only_after_first_gate(); test_idle_formula(); test_zz_and_excess_terms(); print("ok")

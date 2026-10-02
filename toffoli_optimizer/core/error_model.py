@@ -69,6 +69,9 @@ class HardwareErrorModel:
         t2: Optional[float] = None,
         t_2q: float = 68e-9,
         t_1q: float = 36e-9,
+        zz_hz: float = 0.0,
+        zz_pairs=None,
+        p_excess_2q: float = 0.0,
     ):
         if not (0.0 <= p2q < 1.0):
             raise ValueError("p2q must be in [0, 1)")
@@ -89,6 +92,20 @@ class HardwareErrorModel:
             raise ValueError("t1 and t2 must be positive")
         self.t1, self.t2 = t1, t2
         self.t_2q, self.t_1q = t_2q, t_1q
+        # Optional static ZZ crosstalk: coupled qubits that are both active for a
+        # common time T acquire the conditional phase phi = 2 pi zeta T on |11>;
+        # Pauli-twirled, this costs 1 - (3/4) sin^2(phi/2) per pair. ``zz_pairs``
+        # lists the coupled pairs (a device layout); if None, every pair that shares
+        # a two-qubit gate in the circuit is taken as coupled. Off when zz_hz == 0.
+        if zz_hz < 0:
+            raise ValueError("zz_hz must be >= 0")
+        self.zz_hz = zz_hz
+        self.zz_pairs = None if zz_pairs is None else {tuple(sorted(p)) for p in zz_pairs}
+        # Optional excess error per two-qubit gate (leakage and the gap between the
+        # isolated and the in-circuit gate error). Off when 0.
+        if not (0.0 <= p_excess_2q < 1.0):
+            raise ValueError("p_excess_2q must be in [0, 1)")
+        self.p_excess_2q = p_excess_2q
 
     # ------------------------------------------------------------------ helpers
     @staticmethod
@@ -163,6 +180,10 @@ class HardwareErrorModel:
                 f *= (1.0 - err)
         if self.t1 is not None:
             f *= self.idle_fidelity(circuit)
+        if self.zz_hz > 0:
+            f *= self.zz_fidelity(circuit)
+        if self.p_excess_2q > 0:
+            f *= (1.0 - self.p_excess_2q) ** self.two_qubit_count(circuit)
         return 1.0 - f
 
     # ------------------------------------------------------------------- idle
@@ -200,6 +221,46 @@ class HardwareErrorModel:
                     busy[q] += dt
                     first[q] = t0 + dt
         return {q: max(0.0, first[q] - busy[q]) for q in range(n) if first[q] is not None}
+
+    def active_windows(self, circuit) -> dict:
+        """[start, end] of every acting qubit under the ALAP schedule (end = circuit end)."""
+        n = circuit.num_qubits
+        cur = [0.0] * n
+        first = [None] * n
+        for inst in reversed(circuit.data):
+            name = inst.operation.name.lower()
+            qs = [circuit.find_bit(q).index for q in inst.qubits]
+            if name == "barrier":
+                t = max(cur[q] for q in qs)
+                for q in qs:
+                    cur[q] = t
+                continue
+            t0 = max(cur[q] for q in qs)
+            dt = self._duration(name, len(qs))
+            for q in qs:
+                cur[q] = t0 + dt
+                if dt > 0:
+                    first[q] = t0 + dt
+        T = max(cur) if n else 0.0
+        return {q: (T - first[q], T) for q in range(n) if first[q] is not None}
+
+    def zz_fidelity(self, circuit) -> float:
+        if self.zz_hz <= 0:
+            return 1.0
+        pairs = self.zz_pairs
+        if pairs is None:
+            pairs = set()
+            for inst in circuit.data:
+                qs = [circuit.find_bit(q).index for q in inst.qubits]
+                if len(qs) == 2 and inst.operation.name.lower() not in _FREE_GATES:
+                    pairs.add(tuple(sorted(qs)))
+        win = self.active_windows(circuit)
+        f = 1.0
+        for a, b in pairs:
+            if a in win and b in win:
+                T = max(0.0, min(win[a][1], win[b][1]) - max(win[a][0], win[b][0]))
+                f *= 1.0 - 0.75 * math.sin(math.pi * self.zz_hz * T) ** 2
+        return f
 
     def idle_fidelity(self, circuit) -> float:
         """prod_q (1 - p_x - p_y - p_z) for the Pauli-twirled amplitude and phase
