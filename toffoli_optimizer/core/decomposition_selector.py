@@ -580,6 +580,7 @@ class ErrorBudgetSelector:
             selected = exact
             fell_back = True
             applied, phase_admitted, approx_admitted, rphase_admitted = [], [], [], []
+            actions = {}
             epsilon_per_index, epsilon_spent_total = {}, 0.0
             verified, perm, vinfo = True, None, {
                 **vinfo, "fallback": "exact_only_after_failed_certificate"}
@@ -613,7 +614,8 @@ class ErrorBudgetSelector:
             verify_info=vinfo,
             output_permutation=perm,
         )
-        return {"circuit": selected, "report": report}
+        return {"circuit": selected, "report": report, "actions": dict(actions),
+                "exact": exact, "cert_inputs": cert_inputs}
 
     # ------------------------------------------------------------- reachability
     @staticmethod
@@ -663,10 +665,13 @@ class ErrorBudgetSelector:
                 continue
             qb = [circuit.find_bit(q).index for q in inst.qubits]
             kind = action[0]
+            # Optional orientation flag ("swap"): the two controls exchange roles, so
+            # the CX pair that the gadget uses twice moves to the other control.
+            a_, b_ = (qb[1], qb[0]) if len(action) > 1 and action[1] == "swap" else (qb[0], qb[1])
             if kind == "relphase":
-                append_relative_phase_ccx(out, qb[0], qb[1], qb[2])
+                append_relative_phase_ccx(out, a_, b_, qb[2])
             elif kind == "relphase_m":
-                append_relative_phase_ccx_mirror(out, qb[0], qb[1], qb[2])
+                append_relative_phase_ccx_mirror(out, a_, b_, qb[2])
             elif kind == "control_drop":
                 append_control_drop(out, qb[0], qb[1], qb[2], action[1])
             else:
