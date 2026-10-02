@@ -60,3 +60,46 @@ def t1t2_from_props(P):
             if p["name"] == "T1": T1[q] = p["value"] * u
             if p["name"] == "T2": T2[q] = p["value"] * u
     return T1, T2
+
+
+# ------------------------------------------------------------------ crosstalk ZZ
+def active_windows(c, dur):
+    """[start, end] (s) of every qubit under the ALAP schedule: first gate to start of measurement."""
+    n = c.num_qubits; ops = [(i.operation.name, [c.find_bit(q).index for q in i.qubits]) for i in c.data]
+    cur = [0.0] * n; first = [None] * n; meas = [None] * n
+    for name, qs in reversed(ops):
+        if name == "barrier":
+            t = max(cur[q] for q in qs)
+            for q in qs: cur[q] = t
+            continue
+        t0 = max(cur[q] for q in qs); dt = dur(name, qs)
+        for q in qs:
+            cur[q] = t0 + dt
+            if name == "measure": meas[q] = t0 + dt
+            elif dt > 0: first[q] = t0 + dt
+    T = max(cur)
+    # w czasie do przodu: start = T - first, koniec (start pomiaru) = T - meas
+    return {q: (T - first[q], T - meas[q]) for q in range(n) if first[q] is not None and meas[q] is not None}
+
+
+def zz_map(props, edges):
+    g = {x["name"]: x["value"] for x in props.get("general", [])}
+    out = {}
+    for a, b in edges:
+        for k in (f"zz_{a}{b}", f"zz_{b}{a}"):
+            if k in g:
+                out[tuple(sorted((a, b)))] = abs(g[k]) * 1e9   # GHz -> Hz
+                break
+    return out
+
+
+def zz_fidelity(c, dur, zz):
+    """prod over coupled pairs of active qubits of 1 - (3/4) sin^2(phi/2), phi = 2 pi zeta T_overlap
+    (static ZZ = conditional phase on |11>, Pauli-twirled; spectators in |0> pick up nothing)."""
+    win = active_windows(c, dur); f = 1.0; pairs = 0
+    for (a, b), zeta in zz.items():
+        if a in win and b in win:
+            T = max(0.0, min(win[a][1], win[b][1]) - max(win[a][0], win[b][0]))
+            if T > 0:
+                phi = 2 * math.pi * zeta * T; f *= 1 - 0.75 * math.sin(phi / 2) ** 2; pairs += 1
+    return f, pairs
