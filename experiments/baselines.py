@@ -107,7 +107,10 @@ def m_tket(circ: QuantumCircuit) -> QuantumCircuit:
     is a relabeling only; it does not touch the gate sequence or the 2q count.
     """
     tkc = qiskit_to_tk(circ)
-    FullPeepholeOptimise().apply(tkc)
+    # allow_swaps=False: with the default, FullPeepholeOptimise may end in implicit
+    # wire swaps that tk_to_qiskit drops, so the output would differ from the input
+    # by a qubit permutation. A subroutine cannot permute its outputs for free.
+    FullPeepholeOptimise(allow_swaps=False).apply(tkc)
     AutoRebase({OpType.CX, OpType.TK1}).apply(tkc)
     out = tk_to_qiskit(tkc)
 
