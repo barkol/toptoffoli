@@ -101,6 +101,20 @@ if os.path.exists(LH):
         HWMINSIG=min(int(sig(R[(n,'sub')], R[(n,'greedy')])) for n in ("half_uncomputed","live_and_chain","single_live_toffoli")),
         HWCAREF=f"{R[('controlled_adder_2b','ref')]['p0_hw']:.2f}", HWCAS=f"{R[('controlled_adder_2b','sub')]['p0_hw']:.2f}",
         HWCAG=f"{R[('controlled_adder_2b','greedy')]['p0_hw']:.2f}", HWCAGI=f"{R[('controlled_adder_2b','greedy')]['p0_ideal']:.2f}")
+    # drugi test lustrzany, ibm_aachen (experiments/mirror_test_ibm_aachen.py)
+    A = json.load(open(os.path.join(TAB, "lustro_aachen.json"))); RA = {(r["name"], r["tag"]): r for r in A["rows"]}
+    def zz(a, b): return (a['p0_hw'] - b['p0_hw']) / math.hypot(a['sigma'], b['sigma'])
+    GW = [n for n in dict.fromkeys(k[0] for k in RA) if RA[(n, 'greedy')]['p0_ideal'] < 0.999]
+    SB = [n for n in GW if RA[(n, 'sub')]['twoq_V'] < RA[(n, 'ref')]['twoq_V']]
+    K.update(AABACK=A["job"]["backend"].replace("_", "\\_"), AASHOTS=A["job"]["shots"], AAQPU=A["usage_after"], AANGW=len(GW), AANSB=len(SB),
+        AAMINSIG=f"{min(zz(RA[(n,'sub')], RA[(n,'greedy')]) for n in GW):.0f}",
+        AAREFGRMIN=f"{min(zz(RA[(n,'ref')], RA[(n,'greedy')]) for n in GW):.1f}",
+        AANBETTER=sum(1 for n in SB if zz(RA[(n,'sub')], RA[(n,'ref')]) > 3),
+        AABETMIN=f"{min(zz(RA[(n,'sub')], RA[(n,'ref')]) for n in SB if zz(RA[(n,'sub')], RA[(n,'ref')]) > 3):.1f}",
+        AABETMAX=f"{max(zz(RA[(n,'sub')], RA[(n,'ref')]) for n in SB):.0f}",
+        AA3CZ=f"{-zz(RA[('half_uncomputed_3c','sub')], RA[('half_uncomputed_3c','ref')]):.1f}",
+        AANESTZ=f"{abs(zz(RA[('nested_compute_uncompute','sub')], RA[('nested_compute_uncompute','greedy')])):.1f}",
+        AACAREF=f"{RA[('controlled_adder_2b','ref')]['p0_hw']:.2f}", AACAS=f"{RA[('controlled_adder_2b','sub')]['p0_hw']:.2f}", AACAG=f"{RA[('controlled_adder_2b','greedy')]['p0_hw']:.2f}")
 # --- RevLib
 RL = os.path.join(TAB, "revlib.json")
 if os.path.exists(RL):

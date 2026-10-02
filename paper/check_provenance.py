@@ -13,6 +13,7 @@ EXP = PAPER.parent / "experiments"
 PAIRS = [
     ("tables/data/lustro_hw.json", "fixtures/mirror_test/wyniki_hw.json"),          # mirror_test_ibm.py odbierz
     ("tables/data/lustro_plan.json", "fixtures/mirror_test/plan_FakeMarrakesh.json"),  # mirror_test_ibm.py plan
+    ("tables/data/lustro_aachen.json", "fixtures/mirror_test_aachen/wyniki_aachen.json"),  # mirror_test_ibm_aachen.py odbierz
     ("tables/data/idle_budget.json", "budget/idle_budget.json"),                   # budget/idle_budget.py
     ("tables/data/przewidywanie.json", "budget/przewidywanie.json"),               # budget/budget_vs_hardware.py
     ("tables/data/orientacja.jsonl", "budget/orientacja.jsonl"),                   # budget/orientation_eval.py

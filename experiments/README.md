@@ -31,6 +31,7 @@ or, without installing, run scripts directly; the `_paths.py` shim puts the repo
 | `scale_eval_ckpt.py` (uses `scale_eval.py`) | `scale_rows.jsonl`, `scale_results.md` | Fig. `scale`, 12–24-qubit numbers | ~5-15 min, resumable |
 | `scale_program.py` (`scale_program_last.py` for a QCEC timeout) | `scale_program_rows.jsonl` | program semantics and count-greedy at 12–24 qubits | ~30 min, resumable |
 | `mirror_test_ibm.py plan / wyslij / odbierz` | `fixtures/mirror_test/` | Table `mirror` | IBM job |
+| `mirror_test_aachen_plan.py`, `mirror_test_ibm_aachen.py sprawdz / wyslij / odbierz` | `fixtures/mirror_test_aachen/` | Table `mirror2` | IBM job |
 | `revlib/fetch_revlib.py` | `revlib/real/*.real` (checked against `revlib/real.sha256`) | Table `revlib` | ~1 min |
 | `revlib/revlib_eval.py all`, `revlib/revlib_extra.py` | `revlib/wyniki.jsonl`, `revlib/wyniki_extra.jsonl` | Table `revlib` | ~30 min + timeouts, resumable |
 | `budget/budget_vs_hardware.py` | `budget/przewidywanie.json` | budget vs hardware | seconds |

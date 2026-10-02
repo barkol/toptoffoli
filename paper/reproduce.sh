@@ -27,7 +27,7 @@ echo "== 2. RevLib aggregate from per-circuit results (experiments/revlib/wyniki
 "$PY" tables/revlib_data.py > /dev/null
 
 echo "== 3. tables"
-for t in semantics mirror revlib; do "$PY" tables/make_tab_$t.py > /dev/null; echo "tables/tab_$t.tex"; done
+for t in semantics mirror mirror_aachen revlib; do "$PY" tables/make_tab_$t.py > /dev/null; echo "tables/tab_$t.tex"; done
 
 echo "== 4. figure data and figures"
 "$PY" figures/figures_data.py

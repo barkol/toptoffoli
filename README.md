@@ -62,9 +62,9 @@ to run the experiment drivers:
    `noisy_sim.py`), resetting circuits (`sync_benchmark.py`, `sync_scale.py`),
    12–24-qubit suite (`scale_eval_ckpt.py`, `scale_program.py`), RevLib
    (`revlib/fetch_revlib.py`, `revlib/revlib_eval.py`, `revlib/revlib_extra.py`),
-   IBM mirror test (`mirror_test_ibm.py`), error budget on hardware (`budget/`).
+   IBM mirror tests (`mirror_test_ibm.py`, `mirror_test_ibm_aachen.py`), error budget on hardware (`budget/`).
 2. `paper/reproduce.sh` rebuilds from the stored results the tables
-   (`paper/tables/make_tab_{semantics,mirror,revlib}.py`), the figure data and the
+   (`paper/tables/make_tab_{semantics,mirror,mirror_aachen,revlib}.py`), the figure data and the
    figures (`paper/figures/figures_data.py`, `paper/figures/make_figures.py`) and the
    numbers of the text (`paper/liczby/liczby_v14.py` -> `liczby.json`). The outputs are
    byte-identical to the files of the manuscript (figure PDFs pixel-identical).

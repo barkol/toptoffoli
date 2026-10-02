@@ -31,7 +31,8 @@ git status paper/                    # nothing listed = every output identical t
 1. checks that the copies of experiment outputs kept in `paper/` are byte-identical to the files
    in `experiments/` (`check_provenance.py`);
 2. rebuilds `tables/data/revlib.json` from the per-circuit RevLib results (`tables/revlib_data.py`);
-3. writes `tables/tab_semantics.tex`, `tables/tab_mirror.tex`, `tables/tab_revlib.tex`;
+3. writes `tables/tab_semantics.tex`, `tables/tab_mirror.tex`, `tables/tab_mirror_aachen.tex`,
+   `tables/tab_revlib.tex`;
 4. writes `figures/data/make_figures.npz` (`figures/figures_data.py`) and draws
    `figures/fig_{safety,budget,device,scale}.pdf` (`figures/make_figures.py`; needs a LaTeX
    installation because the figures use `text.usetex`; `SKIP_FIGURES=1` skips the drawing);
@@ -59,6 +60,7 @@ The manuscript source itself is not part of this repository.
 | Table `bench` (12-circuit suite) | typed in the manuscript | — | circuits: `experiments/benchmarks.py` |
 | Table `semantics` | `tables/make_tab_semantics.py` | `tables/data/semantyki.json`, `tables/data/interferencja.json`, `data/rerun_v14/experiments/baseline_results.md` | `tables/semantyki_data.py`, `tables/interferencja_data.py`, `experiments/baselines.py` |
 | Table `mirror` (IBM mirror test) | `tables/make_tab_mirror.py` | `tables/data/lustro_hw.json` (= `experiments/fixtures/mirror_test/wyniki_hw.json`) | `experiments/mirror_test_ibm.py plan / wyslij / odbierz` (job id in `experiments/fixtures/mirror_test/job.json`) |
+| Table `mirror2` (second mirror test, `ibm_aachen`) | `tables/make_tab_mirror_aachen.py` | `tables/data/lustro_aachen.json` (= `experiments/fixtures/mirror_test_aachen/wyniki_aachen.json`) | `experiments/mirror_test_ibm_aachen.py sprawdz / wyslij / odbierz` (plan: `experiments/mirror_test_aachen_plan.py`; job id in `fixtures/mirror_test_aachen/job.json`) |
 | Table `revlib` | `tables/make_tab_revlib.py` | `tables/data/revlib.json` | `tables/revlib_data.py` <- `experiments/revlib/wyniki.jsonl` (`revlib_eval.py`), `wyniki_extra.jsonl` (`revlib_extra.py`), `nieuruchomione.json`; files from `fetch_revlib.py` |
 | Table `reset` | numbers `RS*` in `liczby/liczby.json` | `data/rerun_v14/log_sync_scale.txt` | `experiments/sync_scale.py` |
 
@@ -88,6 +90,7 @@ All four read `figures/data/make_figures.npz`, written by `figures/figures_data.
 | `L*`, `F{GRO,MIX,CLA,RIP,MOD,MUL,LIV}*`, `LQ*`, `LND`, `LDT`, `X*` | 12–24-qubit suite, certificates, verification crossover | `data/rerun_v14/experiments/scale_rows.jsonl`, `scale_results.md` | `experiments/scale_eval_ckpt.py` |
 | `P*` (program mode), `G2Q`, `GNBAD`, `GNUND`, `GSAMEBAD`, `PMULTMIN` | 12–24-qubit suite in program semantics and count-greedy | `data/rerun_v14/experiments/scale_program_rows.jsonl` | `experiments/scale_program.py`; the `array_mult_6b` row from `scale/qcec_mult6.py` (QCEC without the 300 s limit, outputs `data/rerun_v14/array_mult_6b_*.json`) |
 | `HW*` | mirror test on `ibm_marrakesh` | `tables/data/lustro_hw.json` | `experiments/mirror_test_ibm.py` |
+| `AA*` | second mirror test on `ibm_aachen` | `tables/data/lustro_aachen.json` | `experiments/mirror_test_ibm_aachen.py` |
 | `RL*` | RevLib suite | `tables/data/revlib.json` | see Table `revlib` |
 | `PR*` (prediction), `PRLAM*`, `PRCZMED` | error budget vs hardware | `tables/data/przewidywanie.json` (= `experiments/budget/przewidywanie.json`) | `experiments/budget/budget_vs_hardware.py` |
 | `ID*`, `FULL*` | idle errors and ZZ in the budget | `tables/data/idle_budget.json` (= `experiments/budget/idle_budget.json`) | `experiments/budget/idle_budget.py` |
@@ -132,7 +135,8 @@ checkpointed drivers (`scale_eval_ckpt.py`, `scale_program.py`, `revlib_eval.py`
 `revlib_extra.py`) without touching stored data: `TOPTOFFOLI_OUT=<dir>` sets the output directory
 and `TOPTOFFOLI_QCEC_TIMEOUT=<s>` the limit of one QCEC call (default 120 s, the paper's value).
 Point `liczby_v14.py` and `figures_data.py` at a new run directory with their first argument.
-The IBM hardware stages (`mirror_test_ibm.py wyslij/odbierz`, `diag.py wyslij/odbierz`) need an
+The IBM hardware stages (`mirror_test_ibm.py wyslij/odbierz`, `mirror_test_ibm_aachen.py wyslij/odbierz`,
+`diag.py wyslij/odbierz`) need an
 IBM Quantum account; the `plan` stages and everything downstream run without one from the stored
 counts, ISA circuits (`experiments/budget/lustro_isa.qpy`) and calibrations (`*.pkl`).
 

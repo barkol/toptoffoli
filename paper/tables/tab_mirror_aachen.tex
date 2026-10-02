@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering\footnotesize
+\caption{Mirror test on \texttt{ibm\_aachen} ($8000$ shots per circuit, standard error
+$\le0.006$), as in Table~\ref{tab:mirror}. The column 2q gives the
+two-qubit gates after transpilation for the reference, the pass and count-greedy substitution. Ideal values in parentheses;
+they equal $1$ for the reference and for the pass on every circuit.}
+\label{tab:mirror2}
+\setlength{\tabcolsep}{1.6pt}
+\begin{tabular}{lcccc}
+\toprule
+Circuit & 2q & Ref. & Pass & Count-greedy \\
+\midrule
+Half-unc.\ (2c) & $60/49/49$ & $0.756$ & $0.788$ & $0.232$\,($0.25$) \\
+Half-unc.\ (3c) & $100/81/86$ & $0.568$ & $0.551$ & $0.254$\,($0.56$) \\
+Half-unc.\ (4c) & $148/120/119$ & $0.222$ & $0.320$ & $0.181$\,($0.56$) \\
+Mod.\ incr.\ (3b) & $74/60/60$ & $0.527$ & $0.676$ & $0.135$\,($0.06$) \\
+Contr.\ adder (2b) & $158/137/125$ & $0.181$ & $0.344$ & $0.138$\,($0.32$) \\
+Nested (control) & $78/56/56$ & $0.470$ & $0.650$ & $0.663$\,($1.00$) \\
+\bottomrule
+\end{tabular}
+\end{table}
