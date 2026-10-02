@@ -87,7 +87,39 @@ toptoffoli/
   - `pytket`, `pytket-qiskit` — the tket baseline in `baselines.py`
   - `mqt.qcec` — decision-diagram verification above the exhaustive limit
 
-## Citation
+## Maintained and deprecated parts
+
+**Maintained (v1.2):** the certified decomposition pass of the paper —
+`toffoli_optimizer.core` modules `decomposition_selector`, `subspace_check`,
+`reach_local`, `reachable_subspace`, `window_pairs`, `orientation`,
+`context_analysis`, `phase_observability`, `error_model`, `equivalence_verifier`,
+`scalable_verification` and `toffoli_count_reducer`, plus the `experiments/` scripts.
+
+**Deprecated (legacy v1.0, May 2025):** `core.compiler`, `core.toffoli_depth_optimizer`,
+`core.circuit_gate_processor`, `core.pattern_library_module`, the `utils` package and
+the `toffoli-optimizer` command-line tool. They emit a `DeprecationWarning` when used
+and are kept only to reproduce the first release. An audit on 2026-10-02 found
+confirmed correctness bugs in them (among others: the default Toffoli decomposition
+is not a CCX; pattern rewrites not equivalent to CCX out of context; gates silently
+dropped or moved to wrong qubits; command-line tools that write circuits not
+equivalent to their input). Each bug is pinned as a strict `xfail` test in
+`tests/unit/`. Do not use these modules for results that must be correct.
+
+**Certificates (v1.2):** all decision-diagram certificates call MQT QCEC with
+`run_zx_checker=False`, `elide_permutations=False` and `trace_threshold=1e-12`.
+With the defaults used up to v1.1, QCEC could report `equivalent` for circuits that
+differ on the input subspace when ancillas are declared, treated a SWAP as the
+identity, and accepted differences of order 1e-4. Every QCEC-certified result of the
+paper was re-certified with the corrected settings and, independently, by
+state-vector simulation on random superposed inputs; all verdicts were unchanged.
+
+## Tests
+
+`pytest tests` runs about 450 tests: regression tests for the soundness of the pass
+(including the editor's counterexample), property tests against dense-matrix ground
+truth on random circuits, and strict `xfail` tests that document the known bugs of
+the deprecated modules.
+
 
 If you use this software or reproduce results from the paper, please cite:
 

@@ -8,8 +8,15 @@ This module acts as a facade that imports and exposes the ToffoliDepthOptimizer
 and OptimizationStrategy for use throughout the project.
 """
 
-# Import the main optimizer implementation
-from .toffoli_depth_optimizer import ToffoliDepthOptimizer
+# The legacy depth optimizer is loaded lazily (deprecated, see toffoli_optimizer/_legacy.py).
+def __getattr__(name):
+    if name == "ToffoliDepthOptimizer":
+        from toffoli_optimizer._legacy import warn_legacy
+        warn_legacy(name)
+        from .toffoli_depth_optimizer import ToffoliDepthOptimizer
+        return ToffoliDepthOptimizer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # Import the optimization strategy enum
 from .optimization_strategy import OptimizationStrategy

@@ -130,6 +130,8 @@ class ToffoliDepthOptimizer:
                 Only applies to DEPTH_FIDELITY_BALANCE strategy. Higher values prioritize fidelity more.
                 
         """
+        from toffoli_optimizer._legacy import warn_legacy
+        warn_legacy('ToffoliDepthOptimizer')
         from .optimization_strategy import OptimizationStrategy
         
         self.target_fidelity = target_fidelity

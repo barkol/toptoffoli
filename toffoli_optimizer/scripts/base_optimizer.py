@@ -32,6 +32,8 @@ class BaseOptimizer:
     
     def __init__(self):
         """Initialize the base optimizer with default values."""
+        from toffoli_optimizer._legacy import warn_legacy
+        warn_legacy('BaseOptimizer')
         self.results = {}
         self.start_time = None
         self.debug_mode = False

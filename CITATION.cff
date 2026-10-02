@@ -22,7 +22,7 @@ authors:
 repository-code: "https://github.com/barkol/toptoffoli"
 url: "https://github.com/barkol/toptoffoli"
 license: MIT
-version: "1.0.0"
+version: "1.2.0"
 keywords:
   - quantum computing
   - quantum compilation

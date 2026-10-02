@@ -31,6 +31,8 @@ class ToffoliPatternLibrary:
                 context) are quarantined and never substituted. Set to False to
                 restore the legacy, unchecked behavior.
         """
+        from toffoli_optimizer._legacy import warn_legacy
+        warn_legacy('ToffoliPatternLibrary')
         self.patterns = {}
         self.simplified_circuits = {}
         self.simplification_metrics = {}

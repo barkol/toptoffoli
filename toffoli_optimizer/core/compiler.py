@@ -46,6 +46,8 @@ class ToffoliCompiler:
             coupling_map: IBM Q coupling map (None uses a default coupling map)
             optimization_level: Qiskit transpiler optimization level (0-3)
         """
+        from toffoli_optimizer._legacy import warn_legacy
+        warn_legacy('ToffoliCompiler')
         if default_basis_gates is None:
             self.default_basis_gates = ['id', 'rz', 'sx', 'x', 'cx']
         else:

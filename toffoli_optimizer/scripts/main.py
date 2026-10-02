@@ -21,6 +21,8 @@ from toffoli_optimizer.scripts.optimize import Optimize
 
 def main():
     """Main function when script is run directly"""
+    from toffoli_optimizer._legacy import warn_legacy
+    warn_legacy('the toffoli-optimizer command-line tool', stacklevel=2)
     parser = argparse.ArgumentParser(description='Toffoli Depth Optimizer')
     
     # Add subparsers for different commands

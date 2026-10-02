@@ -6,6 +6,10 @@ including physical mapping, circuit validation, fidelity estimation,
 I/O operations, and visualization tools.
 """
 
+from toffoli_optimizer._legacy import warn_legacy as _warn_legacy
+_warn_legacy("toffoli_optimizer.utils", stacklevel=3)
+
+
 # Try to import Qiskit to check availability
 try:
     from qiskit import QuantumCircuit

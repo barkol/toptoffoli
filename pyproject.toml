@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toffoli-optimizer"
-version = "1.0.0"
+version = "1.2.0"
 description = "Context-verified, error-budget-aware decomposition selection for Toffoli networks."
 readme = "README.md"
 license = { file = "LICENSE" }
