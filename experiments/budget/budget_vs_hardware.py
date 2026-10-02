@@ -62,7 +62,12 @@ LAM_ALL = _fit(rows)
 for i, r in enumerate(rows):
     lam_i = _fit(rows[:i] + rows[i + 1:]); r['lam_loo'] = lam_i
     r['p0_pred_full_loo'] = _pred(r, lam_i); r['p0_pred_full'] = _pred(r, LAM_ALL)
-res = {'rows': rows, 'lam_all': LAM_ALL, 'lam_loo_range': [min(r['lam_loo'] for r in rows), max(r['lam_loo'] for r in rows)]}
+_used = {}
+for c in circs:
+    for ins in c.data:
+        if ins.operation.name == 'cz':
+            qs = tuple(c.find_bit(q).index for q in ins.qubits); _used[qs] = gerr.get(('cz', qs)) or gerr.get(('cz', qs[::-1]))
+res = {'cz_median_used': float(_np.median(list(_used.values()))), 'rows': rows, 'lam_all': LAM_ALL, 'lam_loo_range': [min(r['lam_loo'] for r in rows), max(r['lam_loo'] for r in rows)]}
 for kind in ('flat', 'cal', 'cal_idle', 'cal_idle_zz', 'full_loo'):
     x = [r[f'p0_pred_{kind}'] for r in rows]; y = [r['p0_hw'] for r in rows]
     res[kind] = {'pearson': pearsonr(x, y)[0], 'spearman': spearmanr(x, y)[0],
