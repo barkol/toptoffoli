@@ -3,7 +3,7 @@ import json, sys, os
 from _paths import EXPERIMENTS_DIR  # noqa: F401
 import scale_eval as SE
 import large_benchmarks as LB
-CK = os.path.join(os.path.dirname(__file__), "scale_rows.jsonl")
+CK = os.path.join(str(SE.OUT_DIR), "scale_rows.jsonl")  # TOPTOFFOLI_OUT redirects
 done = {}
 if os.path.exists(CK):
     for line in open(CK):

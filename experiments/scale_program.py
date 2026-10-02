@@ -14,7 +14,7 @@ from toffoli_optimizer.core.context_analysis import find_relative_phase_safe_sit
 from toffoli_optimizer.core.phase_observability import is_phase_unobservable, default_affected_qubits
 from toffoli_optimizer.core.scalable_verification import verify_scalable
 from toffoli_optimizer.core.subspace_check import certify_on_input_subspace
-CK = os.path.join(os.path.dirname(__file__), "scale_program_rows.jsonl")
+CK = os.path.join(str(SE.OUT_DIR), "scale_program_rows.jsonl")  # TOPTOFFOLI_OUT redirects
 done = set()
 if os.path.exists(CK):
     done = {json.loads(l)["name"] for l in open(CK)}

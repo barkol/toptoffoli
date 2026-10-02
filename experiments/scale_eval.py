@@ -34,7 +34,9 @@ Run:  python scale_eval.py        (writes scale_results.md)
 
 from __future__ import annotations
 
+import os
 import sys
+from pathlib import Path
 import time
 
 from _paths import EXPERIMENTS_DIR  # noqa: F401  (must be first)
@@ -82,7 +84,12 @@ EXHAUSTIVE_MAX_QUBITS = 10
 # dense unitary is two 4096x4096 complex matrices built gate-by-gate over ~170 gates.
 _CROSSOVER_EXHAUSTIVE_CEILING = 12
 
-OUT_MD = str(EXPERIMENTS_DIR / "scale_results.md")
+# Output directory (default: next to this script). TOPTOFFOLI_OUT redirects the results,
+# e.g. for a rerun into paper/data_v12/ that must not overwrite stored data.
+OUT_DIR = Path(os.environ.get("TOPTOFFOLI_OUT", str(EXPERIMENTS_DIR)))
+OUT_MD = str(OUT_DIR / "scale_results.md")
+# Wall-clock limit (s) of one QCEC call in certify(); 120 s is the value used for the paper.
+QCEC_TIMEOUT_S = float(os.environ.get("TOPTOFFOLI_QCEC_TIMEOUT", "120"))
 
 
 # ===========================================================================
@@ -252,12 +259,12 @@ def certify(exact: QuantumCircuit, selected: QuantumCircuit, pinned_zero=()):
             return SimpleNamespace(equivalent=bool(ok), method="dense_subspace", wall_time_s=_t.time() - t0,
                                    detail={"equivalence_criterion": "subroutine"}, n_qubits=n)
         from toffoli_optimizer.core.subspace_check import qcec_certify_on_subspace
-        ok, info = qcec_certify_on_subspace(exact, selected, pinned_zero)
+        ok, info = qcec_certify_on_subspace(exact, selected, pinned_zero, timeout=QCEC_TIMEOUT_S)
         return SimpleNamespace(equivalent=bool(ok), method="qcec_ancilla", wall_time_s=_t.time() - t0,
                                detail={"equivalence_criterion": info.get("qcec", info.get("reason"))}, n_qubits=n)
     """Certify selected == exact-only via verify_scalable; record method + time."""
     res = verify_scalable(
-        exact, selected, exhaustive_max_qubits=EXHAUSTIVE_MAX_QUBITS, timeout_s=120
+        exact, selected, exhaustive_max_qubits=EXHAUSTIVE_MAX_QUBITS, timeout_s=QCEC_TIMEOUT_S
     )
     return res
 

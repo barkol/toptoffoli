@@ -5,7 +5,7 @@ from _paths import EXPERIMENTS_DIR  # noqa
 import scale_eval as SE, large_benchmarks as LB
 from toffoli_optimizer.core.context_analysis import find_relative_phase_safe_sites
 from toffoli_optimizer.core.phase_observability import is_phase_unobservable, default_affected_qubits
-CK = os.path.join(os.path.dirname(__file__), "scale_program_rows.jsonl")
+CK = os.path.join(str(SE.OUT_DIR), "scale_program_rows.jsonl")  # TOPTOFFOLI_OUT redirects
 done = {json.loads(l)["name"] for l in open(CK)}
 for qc in LB.large_suite():
     if qc.name in done: continue

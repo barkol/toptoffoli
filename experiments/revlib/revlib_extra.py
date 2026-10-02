@@ -8,9 +8,9 @@ from _paths import EXPERIMENTS_DIR  # noqa: F401
 import baselines as BL, scale_eval as SE
 from revlib import parse
 from toffoli_optimizer.core.decomposition_selector import ErrorBudgetSelector
-OUT = os.path.join(HERE, "wyniki_extra.jsonl")
+OUT = os.path.join(os.environ.get("TOPTOFFOLI_OUT", HERE), "wyniki_extra.jsonl")
 done = {json.loads(l)["file"] for l in open(OUT)} if os.path.exists(OUT) else set()
-base = [json.loads(l) for l in open(os.path.join(HERE, "wyniki.jsonl"))]
+base = [json.loads(l) for l in open(os.path.join(os.path.dirname(OUT), "wyniki.jsonl"))]
 for b in base:
     f = b["file"]
     if "error" in b or f in done or b["gates"] > int(os.environ.get("MAXG", "1000")):

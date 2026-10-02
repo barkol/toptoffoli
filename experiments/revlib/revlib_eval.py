@@ -7,7 +7,7 @@ Wznawialne: kazdy obwod -> jedna linia w wyniki.jsonl (osobny proces, twardy lim
 Uzycie: revlib_eval.py all | one <plik.real>"""
 import json, os, subprocess, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__)); RUN = os.path.dirname(os.path.dirname(HERE))  # korzen repo
-OUT = os.path.join(HERE, "wyniki.jsonl"); LIMIT = int(os.environ.get("LIMIT", "3600"))
+OUT = os.path.join(os.environ.get("TOPTOFFOLI_OUT", HERE), "wyniki.jsonl"); LIMIT = int(os.environ.get("LIMIT", "3600"))
 PY = sys.executable
 
 
