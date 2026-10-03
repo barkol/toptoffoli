@@ -32,8 +32,8 @@ keywords:
 preferred-citation:
   type: article
   title: >-
-    Certified Context-Dependent Toffoli Decompositions beyond
-    Compute–Uncompute Pairs: Fewer Two-Qubit Gates with Subroutine Guarantees
+    Certified Context-Dependent Toffoli Decompositions with Error
+    Accounting: Fewer Two-Qubit Gates and Subroutine Guarantees
   authors:
     - family-names: Bartkiewicz
       given-names: Karol

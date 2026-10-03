@@ -3,8 +3,8 @@
 Companion code to
 
 > K. Bartkiewicz and P. Tulewicz,
-> **"Certified Context-Dependent Toffoli Decompositions beyond Compute–Uncompute Pairs:
-> Fewer Two-Qubit Gates with Subroutine Guarantees"**,
+> **"Certified Context-Dependent Toffoli Decompositions with Error Accounting:
+> Fewer Two-Qubit Gates and Subroutine Guarantees"**,
 > [arXiv:2606.31791](https://arxiv.org/abs/2606.31791) (2026), submitted to *Quantum*.
 > (Version 1 of the preprint appeared under the title "Context-Verified, Error-Budget-Aware
 > Decomposition Selection for Toffoli Networks".)
