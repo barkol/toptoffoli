@@ -1,0 +1,34 @@
+== B3 supports: 16 supports
+ L= ['000', '010', '100', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['000', '010', '100', '111'] | untouched-qubit OK: none | chains OK: none
+ L= ['000', '010', '101', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['000', '010', '101', '111'] | untouched-qubit OK: none | chains OK: none
+ L= ['000', '011', '100', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['000', '011', '100', '111'] | untouched-qubit OK: none | chains OK: none
+ L= ['000', '011', '101', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['000', '011', '101', '111'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '010', '100', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '010', '100', '111'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '010', '101', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '010', '101', '111'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '011', '100', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '011', '100', '111'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '011', '101', '110'] | untouched-qubit OK: none | chains OK: none
+ L= ['001', '011', '101', '111'] | untouched-qubit OK: none | chains OK: none
+   supports admitting some <=2-CNOT structure: 0
+== positive control Pi={01,10,11}: 8 supports
+ L= ['010', '100', '110'] | untouched-qubit OK: none | chains OK: ['atb', 'bta']
+ L= ['010', '100', '111'] | untouched-qubit OK: none | chains OK: ['atb', 'bta']
+ L= ['010', '101', '110'] | untouched-qubit OK: none | chains OK: ['abt', 'atb', 'bta', 'tab']
+ L= ['010', '101', '111'] | untouched-qubit OK: none | chains OK: ['atb', 'bat', 'bta', 'tba']
+ L= ['011', '100', '110'] | untouched-qubit OK: none | chains OK: ['atb', 'bat', 'bta', 'tba']
+ L= ['011', '100', '111'] | untouched-qubit OK: none | chains OK: ['abt', 'atb', 'bta', 'tab']
+ L= ['011', '101', '110'] | untouched-qubit OK: none | chains OK: ['atb', 'bta']
+ L= ['011', '101', '111'] | untouched-qubit OK: none | chains OK: ['atb', 'bta']
+   supports admitting some <=2-CNOT structure: 8
+== positive control Pi={10,11}: 4 supports
+ L= ['100', '110'] | untouched-qubit OK: ['a'] | chains OK: ['abt', 'atb', 'bat', 'bta', 'tba']
+ L= ['100', '111'] | untouched-qubit OK: ['a'] | chains OK: ['abt', 'atb', 'bta', 'tab', 'tba']
+ L= ['101', '110'] | untouched-qubit OK: ['a'] | chains OK: ['abt', 'atb', 'bta', 'tab', 'tba']
+ L= ['101', '111'] | untouched-qubit OK: ['a'] | chains OK: ['abt', 'atb', 'bat', 'bta', 'tba']
+   supports admitting some <=2-CNOT structure: 4

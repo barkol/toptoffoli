@@ -1,0 +1,18 @@
+x=0 y=0: U agrees with CCX on L: True;  K==G0^dag G1: True;  K Hermitian: True;  K^2=I: True
+    K Pauli coefficients (nonzero): {'IX': 1/2, 'IZ': 1/2, 'ZX': -1/2, 'ZZ': 1/2}
+    operator Schmidt rank of K across b|t: 2
+x=0 y=1: U agrees with CCX on L: True;  K==G0^dag G1: True;  K Hermitian: True;  K^2=I: True
+    K Pauli coefficients (nonzero): {'IX': 1/2, 'IZ': 1/2, 'ZX': -1/2, 'ZZ': 1/2}
+    operator Schmidt rank of K across b|t: 2
+x=1 y=0: U agrees with CCX on L: True;  K==G0^dag G1: True;  K Hermitian: True;  K^2=I: True
+    K Pauli coefficients (nonzero): {'IX': 1/2, 'IZ': -1/2, 'ZX': -1/2, 'ZZ': -1/2}
+    operator Schmidt rank of K across b|t: 2
+x=1 y=1: U agrees with CCX on L: True;  K==G0^dag G1: True;  K Hermitian: True;  K^2=I: True
+    K Pauli coefficients (nonzero): {'IX': 1/2, 'IZ': -1/2, 'ZX': -1/2, 'ZZ': -1/2}
+    operator Schmidt rank of K across b|t: 2
+x=0: V0 X_t V0^dag == K: True
+     V0^dag G0 V0 == |0><0| x X + |1><1| x I: True
+     V0^dag G1 V0 == CX(b,t): True
+     H_t V0 H_t == V0: True
+     H_t N_A H_t == diag(1,-1,1,1): True
+     H_t N_B H_t == CZ: True

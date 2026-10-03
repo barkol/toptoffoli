@@ -1,0 +1,13 @@
+supports enumerated: 255
+class, splittable qubits -> #L
+   (0, ('a', 'b', 't')) 66
+   (1, ('a',)) 36
+   (1, ('a', 'b')) 9
+   (1, ('b',)) 36
+   (2, ()) 27
+   (3, ()) 72
+   (4, ()) 8
+   (6, ()) 1
+FAILURES: none
+full-Pi supports without a class-2 3-subset: 0
+numeric cross-check: 119 supports with a feasible k; numeric c* below proven lower bound: 0

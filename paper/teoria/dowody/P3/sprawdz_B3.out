@@ -1,0 +1,31 @@
+=== B3: L={00t0,01t1,10t2,11t3}, all 16 target choices ===
+0000 product-cut survivors: [] | chain survivors: []
+0001 product-cut survivors: [] | chain survivors: []
+0010 product-cut survivors: [] | chain survivors: []
+0011 product-cut survivors: [] | chain survivors: []
+0100 product-cut survivors: [] | chain survivors: []
+0101 product-cut survivors: [] | chain survivors: []
+0110 product-cut survivors: [] | chain survivors: []
+0111 product-cut survivors: [] | chain survivors: []
+1000 product-cut survivors: [] | chain survivors: []
+1001 product-cut survivors: [] | chain survivors: []
+1010 product-cut survivors: [] | chain survivors: []
+1011 product-cut survivors: [] | chain survivors: []
+1100 product-cut survivors: [] | chain survivors: []
+1101 product-cut survivors: [] | chain survivors: []
+1110 product-cut survivors: [] | chain survivors: []
+1111 product-cut survivors: [] | chain survivors: []
+TOTAL surviving branches: 0
+B3 VERIFIED: every branch of every case is excluded.
+
+=== CONTROL: L={01t1,10t2,11t3} (c*=2, must have survivors) ===
+000 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+001 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+010 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+011 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+100 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+101 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+110 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+111 product-cut survivors: [] | chain survivors: ['atb:core-ends-pass', 'bta:core-ends-pass']
+TOTAL surviving branches: 16
+Control OK: the necessary conditions are not vacuous.
